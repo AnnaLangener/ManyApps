@@ -44,7 +44,7 @@ erc_apps_with_dem <- erc_apps %>%
     by = "unique_participant_number"
   )
 
-erc_apps_with_dem$country <- NA
+erc_apps_with_dem$country <- "Belgium"
 erc_apps_with_dem$PANAS_NEG <- NA
 erc_apps_with_dem$PANAS_POS <- NA
 erc_apps_with_dem$STRESS <- NA
@@ -116,8 +116,8 @@ study_smart_dem <- study_smart_dem_raw %>%
   inner_join(id_map, by = "APP_CODE") %>%
   mutate(
     gender = case_when(
-      gender_raw == 1 ~ "man",
-      gender_raw == 2 ~ "woman",
+      gender_raw == 1 ~ "male",
+      gender_raw == 2 ~ "female",
       TRUE ~ "other"
     ),
     unique_participant_number = paste0("Stu_", participant_number)
@@ -323,10 +323,26 @@ length(unique(stress_dem_apps$participant_number))
 
 length(unique(stress_dem_apps$participant_number[!is.na(stress_dem_apps$STRESS)]))
 
+
+stress_dem_apps$country  <- stress_dem_apps$country %>%
+  recode(
+    AUT = "Austria",
+    DEU = "Germany",
+    FRA = "France",
+    MEX = "Mexico",
+    NLD = "Netherlands"
+  )
+
 stress_dem_apps$PANAS_POS <- NA
 stress_dem_apps$PANAS_NEG <- NA
 stress_dem_apps$PHQ <- NA
 stress_dem_apps$SWLS <- NA
+
+stress_dem_apps$unique_participant_number <- paste0(
+ stress_dem_apps$Dataset,
+  "_",
+ stress_dem_apps$participant_number
+)
 
 write.csv(
   stress_dem_apps,
@@ -335,29 +351,33 @@ write.csv(
 colnames(stress_dem_apps)
 
 # # --- Clean and rename stress baseline data ---
-# heart_b <- heart_b %>%
-#   select(user_id, alter, geschlecht, country) %>%
-#   rename(
-#     participant_number = user_id,
-#     age = age,
-#     gender = geschlecht
-#   ) %>%
-#   mutate(
-#     gender = case_when(
-#       gender == 0 ~ "female",
-#       gender == 1 ~ "male",
-#       gender == 2 ~ "other",
-#       TRUE ~ NA_character_
-#     )
-#   )
-# 
-# # --- Merge stress baseline demographics with app data ---
-# heart_dem_apps <- heart_apps_daily %>%
-#   inner_join(
-#     heart_b %>% select(participant_number, age, gender),
-#     by = "participant_number"
-#   )
-# length(unique(heart_dem_apps$participant_number))
+
+heart_apps_daily
+
+heart_apps_daily$PANAS_POS <- NA
+heart_apps_daily$PANAS_NEG <- NA
+heart_apps_daily$PHQ <- NA
+heart_apps_daily$SWLS <- NA
+heart_apps_daily$STRESS <- NA
+heart_apps_daily$country <- NA
+heart_apps_daily$age <- NA
+heart_apps_daily$gender <- NA
+
+colnames(heart_apps_daily)
+
+heart_apps_daily$unique_participant_number <- paste0(
+  heart_apps_daily$Dataset,
+  "_",
+  heart_apps_daily$participant_number
+)
+
+write.csv(
+  heart_apps_daily,
+  "/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/all/heart_dem_apps.csv")
+
+
+
+############## Parent ###################
 
 # Define PHQ columns
 phq_cols <- c("phq9_a", "phq9_b", "phq9_c", "phq9_d",
@@ -381,7 +401,6 @@ parent_b <- parent_b %>%
     ),
     PHQ = rowMeans(across(all_of(phq_cols)), na.rm = TRUE)
   )
-table(parent_b$region)
 
 parent_b <- parent_b[!duplicated(parent_b$participant_number), ]
 
@@ -395,11 +414,20 @@ parent_dem_apps <- parent_apps_daily %>%
 length(unique(parent_dem_apps$participant_number))
 
 length(unique(parent_dem_apps$participant_number[!is.na(parent_dem_apps$PHQ)]))
+table(parent_b$country)
+
+parent_dem_apps$country[parent_dem_apps$country == "de"] <- "Germany"
 
 parent_dem_apps$PANAS_POS <- NA
 parent_dem_apps$PANAS_NEG <- NA
 parent_dem_apps$STRESS <- NA
 parent_dem_apps$SWLS <- NA
+
+parent_dem_apps$unique_participant_number <- paste0(
+  parent_dem_apps$Dataset,
+  "_",
+  parent_dem_apps$participant_number
+)
 
 write.csv(
   parent_dem_apps,
@@ -452,7 +480,7 @@ kling_dem <- klingelhoefer_apps %>%
     by = "unique_participant_number"
   )
 
-kling_dem$country <- NA
+kling_dem$country <- "Netherlands"
 kling_dem$PANAS_POS <- NA
 kling_dem$PANAS_NEG <- NA
 kling_dem$STRESS <- NA
@@ -510,7 +538,7 @@ emotion_dem <- emotion_apps %>%
     emotion_dem %>% select(unique_participant_number, age, gender,STRESS, SWLS,),
     by = "unique_participant_number"
   )
-emotion_dem$country <- NA
+emotion_dem$country <- "Germany"
 emotion_dem$PANAS_POS <- NA
 emotion_dem$PANAS_NEG <- NA
 emotion_dem$PHQ <- NA
@@ -524,25 +552,7 @@ write.csv(
 
 colnames(emotion_dem)
 
-############# PRISM / Behapp #############
-prism_dem_raw <- read.csv("/Users/f007qrc/projects/ManyApps_Data/PRISM/PRISM2_demographics.csv", stringsAsFactors = FALSE)
-prism_dem <- prism_dem_raw %>%
-  transmute(
-    participant_number = as.character(SUBJECT_ID),
-    age = suppressWarnings(as.numeric(AGE)),
-    gender_raw = toupper(trimws(as.character(SEX))),
-    Dataset = "PRISM2"
-  ) %>%
-  distinct(participant_number, Dataset, .keep_all = TRUE) %>%
-  mutate(
-    gender = case_when(
-      gender_raw == "M" ~ "man",
-      gender_raw == "F" ~ "woman",
-      TRUE ~ "other"
-    ),
-    unique_participant_number = paste0(substr(Dataset, 1, 3), "_", participant_number)
-  ) %>%
-  select(participant_number, age, gender, Dataset, unique_participant_number)
+
 
 ############# Chow  #############
 # Gender: 1: male, 2: female, 3: other
@@ -637,7 +647,7 @@ phonestudy_dem <- phonestudy_apps %>%
     phonestudy_dem %>% select(participant_number, age, gender, SWLS),
     by = "participant_number"
   )
-phonestudy_dem$country <- NA
+phonestudy_dem$country <- "Germany"
 phonestudy_dem$PANAS_POS <- NA
 phonestudy_dem$PANAS_NEG <- NA
 phonestudy_dem$STRESS <- NA
@@ -695,7 +705,7 @@ aidan_dem <- aidan_apps %>%
   mutate(participant_number = as.character(participant_number)) %>%
   inner_join(aidan_dem, by = "participant_number")
 
-aidan_dem$country <- "USA"
+aidan_dem$country <- "United States"
 aidan_dem$PANAS_POS <- NA
 aidan_dem$PANAS_NEG <- NA
 aidan_dem$STRESS <- NA
@@ -707,5 +717,43 @@ length(unique(aidan_dem$participant_number))
 write.csv(
   aidan_dem,
   "/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/all/aidan_apps_with_dem.csv",
+  row.names = FALSE
+)
+
+
+###### Moodylife #####
+
+apps_moodylife = read.csv("/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/moodylife_apps.csv")[-1]
+
+dem_moodylife = read.csv("/Users/f007qrc/projects/ManyApps_Data/MoodyLife/Data Exchange/selfreports.csv")
+
+PA_cols <- c("PANAS_POS1","PANAS_POS2","PANAS_POS3","PANAS_POS4","PANAS_POS5","PANAS_POS6","PANAS_POS7","PANAS_POS8","PANAS_POS9", "PANAS_POS10")
+NA_cols <- c("PANAS_NEG1","PANAS_NEG2","PANAS_NEG3","PANAS_NEG4","PANAS_NEG5","PANAS_NEG6","PANAS_NEG7","PANAS_NEG8","PANAS_NEG9", "PANAS_NEG10")
+
+swls_cols <- c("SWLS_1", "SWLS_2", "SWLS_3", "SWLS_4", "SWLS_5")
+
+# Compute row-wise mean SWLS score
+dem_moodylife$SWLS <- rowMeans(dem_moodylife[swls_cols], na.rm = TRUE)
+dem_moodylife$PANAS_POS <- rowMeans(dem_moodylife[PA_cols], na.rm = TRUE)
+dem_moodylife$PANAS_NEG <- rowMeans(dem_moodylife[NA_cols], na.rm = TRUE)
+dem_moodylife$country <- "Germany"
+dem_moodylife$STRESS <- NA
+dem_moodylife$Dataset <- dem_moodylife$dataset 
+
+dem_moodylife <- dem_moodylife[colnames(dem_moodylife) %in% c("participant_number","age", "gender","Dataset","SWLS","PANAS_POS","PANAS_NEG","country","STRESS")]
+
+
+moodylife <- apps_moodylife %>% inner_join(dem_moodylife, by = "participant_number")
+
+
+
+
+
+length(unique(moodylife$participant_number))
+length(unique(moodylife$participant_number[!is.na(moodylife$SWLS)]))
+
+write.csv(
+  moodylife,
+  "/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/all/moody_apps_with_dem.csv",
   row.names = FALSE
 )

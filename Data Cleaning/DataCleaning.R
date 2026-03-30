@@ -122,7 +122,7 @@ parse_chow_file <- function(f) {
   out <- data.frame(
     participant_number = participant_number,
     Package_name = if ("id_app" %in% names(dt)) dt$id_app else NA_character_,
-    duration = duration/1000,
+    duration = duration,
     timestamp = timestamp,
     Dataset = "Chow_APPUSAGE",
     stringsAsFactors = FALSE
@@ -165,7 +165,9 @@ top20_packages <- chow_apps %>%
 write.csv(chow_apps,"/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/chow_apps.csv")
 
 
+
 ############# Corona Health (Daily Summary) #############
+
 
 parse_corona_app_daily <- function(appdata_str, participant_id, dataset_label, tz = "Europe/Berlin") {
   empty <- data.frame(
@@ -217,9 +219,8 @@ parse_corona_app_daily <- function(appdata_str, participant_id, dataset_label, t
   rows <- Filter(Negate(is.null), rows)
   if (length(rows) == 0) return(empty)
 
-  do.call(rbind, rows) %>%
-    group_by(participant_number, Package_name, timestamp, Dataset) %>%
-    summarise(duration = sum(duration, na.rm = TRUE), .groups = "drop")
+  do.call(rbind, rows) 
+
 }
 
 build_corona_daily <- function(df, dataset_label, tz = "Europe/Berlin") {
@@ -248,9 +249,7 @@ build_corona_daily <- function(df, dataset_label, tz = "Europe/Berlin") {
     ))
   }
 
-  out <- bind_rows(out) %>%
-    group_by(participant_number, Package_name, timestamp, Dataset) %>%
-    summarise(duration = sum(duration, na.rm = TRUE), .groups = "drop")
+  out <- bind_rows(out) 
 
   out$unique_participant_number <- paste0(substr(out$Dataset, 1, 3), "_", out$participant_number)
   out
@@ -262,19 +261,17 @@ heart <- read.csv("/Users/f007qrc/projects/ManyApps_Data/Corona Health/ch_heart_
 parent_b <- read.csv("/Users/f007qrc/projects/ManyApps_Data/Corona Health/ch_parent_baseline_090226.csv", sep = ";")
 parent_f <- read.csv("/Users/f007qrc/projects/ManyApps_Data/Corona Health/ch_parent_followUp_090226.csv", sep = ";")
 
+
+
 stress_b_apps_daily <- build_corona_daily(stress_b, "Corona_Stress", tz = "Europe/Berlin")
 stress_f_apps_daily <- build_corona_daily(stress_f, "Corona_Stress", tz = "Europe/Berlin")
-stress_apps_daily <- bind_rows(stress_b_apps_daily, stress_f_apps_daily) %>%
-  group_by(participant_number, Package_name, timestamp, Dataset, unique_participant_number) %>%
-  summarise(duration = sum(duration, na.rm = TRUE), .groups = "drop")
+stress_apps_daily <- bind_rows(stress_b_apps_daily, stress_f_apps_daily)
 
 heart_apps_daily <- build_corona_daily(heart, "Corona_Heart", tz = "Europe/Berlin")
 
 parent_b_apps_daily <- build_corona_daily(parent_b, "Corona_Parent", tz = "Europe/Berlin")
 parent_f_apps_daily <- build_corona_daily(parent_f, "Corona_Parent", tz = "Europe/Berlin")
-parent_apps_daily <- bind_rows(parent_b_apps_daily, parent_f_apps_daily) %>%
-  group_by(participant_number, Package_name, timestamp, Dataset, unique_participant_number) %>%
-  summarise(duration = sum(duration, na.rm = TRUE), .groups = "drop")
+parent_apps_daily <- bind_rows(parent_b_apps_daily, parent_f_apps_daily)
 
 
 top20_packages <- heart_apps_daily %>%
@@ -337,55 +334,24 @@ load("/Users/f007qrc/projects/ManyApps_Data/Aurelio/New/AppData_Spain2.RData", e
 
 aurelio_apps_raw <- bind_rows(aur_env1$ld_SP1, aur_env2$ld_SP2)
 
-start_col <- if ("start" %in% names(aurelio_apps_raw)) "start" else "start_time"
-end_col <- if ("end" %in% names(aurelio_apps_raw)) "end" else "end_time"
-
 aurelio_apps <- aurelio_apps_raw %>%
   mutate(
-    day_date = suppressWarnings(as.Date(day)),
-    start_val = .data[[start_col]],
-    end_val = .data[[end_col]],
-    start_num = suppressWarnings(as.numeric(start_val)),
-    end_num = suppressWarnings(as.numeric(end_val)),
-    start_secs = case_when(
-      !is.na(start_num) & start_num <= 24 ~ start_num * 3600,
-      !is.na(start_num) ~ start_num,
-      TRUE ~ suppressWarnings(period_to_seconds(hms(as.character(start_val))))
-    ),
-    end_secs = case_when(
-      !is.na(end_num) & end_num <= 24 ~ end_num * 3600,
-      !is.na(end_num) ~ end_num,
-      TRUE ~ suppressWarnings(period_to_seconds(hms(as.character(end_val))))
-    ),
-    start_time = as_datetime(day_date) + seconds(start_secs),
-    end_time = as_datetime(day_date) + seconds(end_secs),
-    end_time = if_else(!is.na(start_time) & !is.na(end_time) & end_time < start_time, end_time + days(1), end_time),
-    duration = as.numeric(end_time - start_time),
-    timestamp = start_time
+    timestamp = as.POSIXct(paste(day, start_time), format = "%Y-%m-%d %H:%M:%S"),
+    duration = as.numeric(difftime(
+      as.POSIXct(paste(day, end_time), format="%Y-%m-%d %H:%M:%S"),
+      as.POSIXct(paste(day, start_time), format="%Y-%m-%d %H:%M:%S"),
+      units = "secs"
+    ))
   ) %>%
-  select(participant_number, Package_name, duration, timestamp, Dataset)
-
-aurelio_apps$unique_participant_number <- paste0(
-  substr(aurelio_apps$Dataset, 1, 3),
-  "_",
-  aurelio_apps$participant_number
-)
-
+  select(participant_number, Package_name, duration, timestamp, Dataset) %>%
+  mutate(
+    unique_participant_number = paste0(substr(Dataset, 1, 3), "_", participant_number)
+  )
 missing_cols <- setdiff(colnames(klingelhoefer_apps), colnames(aurelio_apps))
 for (nm in missing_cols) {
   aurelio_apps[[nm]] <- NA
 }
 aurelio_apps <- aurelio_apps[, colnames(klingelhoefer_apps), drop = FALSE]
-
-
-
-# ### demorgaphics
-# load("/Users/f007qrc/projects/ManyApps_Data/Aurelio/New/Demographics_Spain1.Rdata")
-# load("/Users/f007qrc/projects/ManyApps_Data/Aurelio/New/Demographics_Spain2.Rdata")
-# 
-# base_SP1
-# base_SP2
-# aurelio_demo <- bind_rows(aur_env1$base_SP1, aur_env2$base_SP2)
 
 
 top20_packages <- aurelio_apps %>%
@@ -540,7 +506,7 @@ yannik_apps$unique_participant_number <- paste0(
 unique(yannik_apps$unique_participant_number )
 
 
-top20_packages <- study_smart %>%
+top20_packages <- yannik_apps %>%
   group_by(Package_name) %>%
   summarise(total_duration = sum(duration, na.rm = TRUE)) %>%
   arrange(desc(total_duration)) %>%
@@ -573,7 +539,7 @@ parse_aidan_file <- function(f) {
 
   # Use readable timestamp field, not epoch
   timestamp <- if ("tm_usagewindow_start" %in% names(dt)) {
-    suppressWarnings(ymd_hms(trimws(as.character(dt$tm_usagewindow_start)), tz = "UTC", quiet = TRUE))
+    suppressWarnings(ymd_hms(trimws(as.character(dt$tm_usagewindow_start)), quiet = TRUE))
   } else {
     as.POSIXct(rep(NA, nrow(dt)))
   }
@@ -596,6 +562,16 @@ parse_aidan_file <- function(f) {
 
 aidan_apps <- bind_rows(lapply(aidan_files, parse_aidan_file))
 
+
+top20_packages <- aidan_apps %>%
+  group_by(Package_name) %>%
+  summarise(total_duration = sum(duration, na.rm = TRUE)) %>%
+  arrange(desc(total_duration)) %>%
+  slice_head(n = 20)
+
+top20_packages
+
+
 if (exists("klingelhoefer_apps")) {
   missing_cols <- setdiff(colnames(klingelhoefer_apps), colnames(aidan_apps))
   for (nm in missing_cols) aidan_apps[[nm]] <- NA
@@ -604,3 +580,38 @@ if (exists("klingelhoefer_apps")) {
 
 write.csv(aidan_apps, "/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/aidan_apps.csv")
 
+
+
+###### MoodyLife ####
+
+moodylife <- read.csv("/Users/f007qrc/projects/ManyApps_Data/MoodyLife/Data Exchange/sensingdata.csv")
+
+moodylife
+
+colnames(moodylife)[colnames(moodylife) == "package_name"] <- "Package_name"
+
+colnames(moodylife)[colnames(moodylife) == "start_time"] <- "timestamp"
+
+colnames(moodylife)[colnames(moodylife) == "dataset"] <- "Dataset"
+
+
+moodylife <- moodylife[colnames(moodylife) %in% c("participant_number","Package_name","duration","timestamp","Dataset" )]
+moodylife$unique_participant_number <- paste0(
+  substr(moodylife$Dataset, 1, 3),
+  "_",
+  moodylife$participant_number
+)
+
+colnames(moodylife)
+
+top20_packages <- moodylife %>%
+  group_by(Package_name) %>%
+  summarise(total_duration = sum(duration, na.rm = TRUE)) %>%
+  arrange(desc(total_duration)) %>%
+  slice_head(n = 20)
+
+top20_packages
+
+write.csv(moodylife,"/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/moodylife_apps.csv")
+
+length(unique(moodylife$participant_number))

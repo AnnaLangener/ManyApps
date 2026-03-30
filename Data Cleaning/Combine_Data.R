@@ -2,107 +2,124 @@
 ##############################################
 ########## Combine + Hourly Aggregate ########
 ##############################################
-
+library(data.table)
+library(stringr)
 library(dplyr)
 
-
+# -------------------------------
+# 1. Set directory and get CSVs
+# -------------------------------
 cleaned_apps_dir <- "/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/all"
-available_csv <- list.files(cleaned_apps_dir, pattern = "\\.csv$", full.names = FALSE)
-existing_app_objects <- sub("\\.csv$", "", available_csv)
+available_csv <- list.files(cleaned_apps_dir, pattern = "\\.csv$", full.names = TRUE)
 
-apps_list <- lapply(existing_app_objects, function(obj_name) {
-  f <- file.path(cleaned_apps_dir, paste0(obj_name, ".csv"))
-  df <- read.csv(f, stringsAsFactors = FALSE, check.names = FALSE)
-  df
-})
+# -------------------------------
+# 2. Read all CSVs fast
+# -------------------------------
+apps_list <- lapply(available_csv, fread, stringsAsFactors = FALSE, check.names = TRUE)
+names(apps_list) <- sub("\\.csv$", "", basename(available_csv))
 
-names(apps_list) <- existing_app_objects
-
-apps_list
-### Harmonize timstamps
-### Check timestamps
-for (nm in names(apps_list)) {
-  cat("\n---", nm, "---\n")
+# -------------------------------
+# 3. Clean timestamps vectorized
+# -------------------------------
+apps_list <- lapply(apps_list, function(df) {
   
-  df <- apps_list[[nm]]
+  setDT(df)  # Convert to data.table for fast operations
   
   if ("timestamp" %in% names(df)) {
-    ts <- df$timestamp
-    cat("Class:", class(ts), "\n")
-    cat("Example values:\n")
-    print(head(unique(ts), 5))
-  } else {
-    cat("No timestamp column\n")
+    # Remove milliseconds
+    df[, timestamp := str_remove(as.character(timestamp), "\\..*$")]
+    
+    # Split into date_only and time_only
+    df[, c("date_only", "time_only") := tstrsplit(timestamp, " ", fixed = TRUE)]
+    
+    # Fill missing times with "00:00:00"
+    df[is.na(time_only), time_only := "00:00:00"]
+    
+    # Create datetime_clean
+    df[, datetime_clean := paste(date_only, time_only)]
   }
-}
-
-for (nm in names(apps_list)) {
   
-  df <- apps_list[[nm]]
-  
-  # skip datasets without timestamp
-  if (!("timestamp" %in% names(df))) next
-  
-  ts <- as.character(df$timestamp)
-  
-  # ---- remove milliseconds if present ----
-  ts_clean <- sub("\\..*$", "", ts)
-  
-  # detect date-only rows
-  has_time <- grepl(" ", ts_clean)
-  
-  # ---- create columns ----
-  date_only <- ifelse(
-    has_time,
-    sub(" .*", "", ts_clean),
-    ts_clean
-  )
-  
-  time_only <- ifelse(
-    has_time,
-    sub(".* ", "", ts_clean),
-    NA
-  )
-  
-  datetime_clean <- ifelse(
-    has_time,
-    ts_clean,
-    paste(ts_clean, "00:00:00")
-  )
-  
-  # add back to dataset
-  df$date_only <- date_only
-  df$time_only <- time_only
-  df$datetime_clean <- datetime_clean
-  
-  apps_list[[nm]] <- df
-}
-
-##########
-apps_list <- lapply(apps_list, function(df) {
-  df[, names(df) != "", drop = FALSE]
+  return(df)
 })
 
-all_cols <- unique(unlist(lapply(apps_list, names)))
-all_apps_df <- do.call(rbind, apps_list)
+# -------------------------------
+# 4. Combine all datasets efficiently
+# -------------------------------
+all_apps_dt <- rbindlist(apps_list, fill = TRUE)  # fill=TRUE handles different column sets
 
+# Convert back to data.frame if needed
+all_apps_df <- as.data.frame(all_apps_dt)
 
-write.csv(all_apps_df,"/Users/f007qrc/projects/ManyApps_Data/complete_data_beforecleaning.csv")
-all_apps_df = read.csv("/Users/f007qrc/projects/ManyApps_Data/complete_data_beforecleaning.csv")
-
+# -------------------------------
+# 5. Analyze participants
+# -------------------------------
 manyapps_all_apps_raw <- all_apps_df
-unique_participants <- unique(manyapps_all_apps_raw[, c("participant_number", "Dataset")])
-table(unique_participants$Dataset)
-unique_participants <- unique(manyapps_all_apps_raw[, c("participant_number", "country")])
-table(unique_participants$country)
 
-length(unique(manyapps_all_apps_raw$unique_participant_number))
+# Unique participants by dataset
+unique_participants_dataset <- unique(manyapps_all_apps_raw[, c("participant_number", "Dataset")])
+table(unique_participants_dataset$Dataset)
+
+# # Unique participants by country
+# unique_participants_country <- unique(manyapps_all_apps_raw[, c("unique_participant_number", "country")])
+# table(unique_participants_country$country)
+# 
+# library(treemapify)
+# # -------------------------------
+# # 1. Summarize participant counts by country
+# # -------------------------------
+# plot_data <- unique_participants_country %>%
+#   group_by(country) %>%
+#   summarise(n_participants = n()) %>%
+#   ungroup() %>%
+#   # Optional: treat numeric codes/NA as "Other"
+#   mutate(country = ifelse(is.na(country) | grepl("^[0-9]+$", country), "Other", country))
+# 
+# # -------------------------------
+# # 2. Treemap plot
+# # -------------------------------
+# ggplot(plot_data, aes(area = n_participants, fill = country, label = country)) +
+#   geom_treemap() +
+#   geom_treemap_text(color = "white", place = "center", size = 12) +
+#   labs(title = "Participants by Country") +
+#   theme(legend.position = "none")
+
+
+manyapps_all_apps_raw <- manyapps_all_apps_raw[, !colnames(manyapps_all_apps_raw) %in% "V1"]
+write.csv(manyapps_all_apps_raw,"/Users/f007qrc/projects/ManyApps_Data/complete_data_beforecleaning.csv")
+
+sum(is.na(manyapps_all_apps_raw$datetime_clean))
+unique(manyapps_all_apps_raw$Dataset[is.na(manyapps_all_apps_raw$datetime_clean)])
+
+
+
 
 #################################################################
 ########## Data Cleaning as described in Preregistration ########
 #################################################################
-sum(is.na(manyapps_all_apps_raw$timestamp))
-unique(manyapps_all_apps_raw$Dataset[is.na(manyapps_all_apps_raw$timestamp)])
+
+# Dataset: manyapps_all_apps_raw
+
+# includes the following columns
+
+# "participant_number": original participant ID as recorded in the dataset [chr]
+# "Package_name": app package identifier [chr]
+# "timestamp": Raw timestamp of start of app usage event [chr]
+# "Dataset": Name for dataset (e.g., WHALE) [chr]
+# "duration": duration of app usage (in seconds!) [num]
+# "unique_participant_number": Dataset + participant_number [paste0(substr(Dataset, 1, 3), "_", participant_number)] (to make sure its unique across datasets) [chr]
+
+# (next variables are baseline variables that are just repeated, if not measured they are coded as "NA")
+# "age": age [int]
+# "gender": options are: female, male, other [chr]
+# "PHQ": mean PHQ-8 [num]
+# "country": country of data collection (e.g., "Germany") [chr]
+# "PANAS_POS": Mean of positive affect items (scale 1-5) [num]
+# "PANAS_NEG": Mean of negative affect items (scale 1-5) [num]
+# "STRESS": Mean Perceived Stress Scale [num]
+# "SWLS": Mean SWLS Scale [num]
+# "date_only": Cleaned date from timestamp: "YYYY-MM-DD" (e.g., 2023-06-13) [chr]
+# "time_only": Cleaned hour from timestamp: "HH:MM:SS"  (e.g., 19:09:23) [chr]
+# "datetime_clean": Cleaned date from timestamp"  "YYYY-MM-DD HH:MM:SS"  (e.g., 2023-06-13 19:09:23) [chr]
 
 
 # Keep only valid timestamps and non-negative duration
@@ -114,18 +131,17 @@ manyapps_all_apps_raw <- manyapps_all_apps_raw %>%
     day = as.Date(timestamp)
   )
 
-# Use only first 14 days per participant within each dataset
+# Use only first 14 days per participant within each dataset (to avoid overrepresentation of one specific dataset)
 participant_windows <- manyapps_all_apps_raw %>%
   group_by(Dataset, unique_participant_number) %>%
   summarise(first_day = min(day, na.rm = TRUE), .groups = "drop") %>%
   mutate(last_day_14 = first_day + 13)
 
-
 manyapps_14d <- manyapps_all_apps_raw %>%
   inner_join(participant_windows, by = c("Dataset", "unique_participant_number")) %>%
   filter(day >= first_day, day <= last_day_14)
 
-# Label days with no app usage as missing
+# Label days with no app usage as missing (to exclude participants with less than 50% observed days or less than 7 days)
 participant_day_grid <- participant_windows %>%
   rowwise() %>%
   mutate(day = list(seq.Date(first_day, last_day_14, by = "day"))) %>%
@@ -154,7 +170,16 @@ participant_quality <- manyapps_day_coverage %>%
     .groups = "drop"
   )
 
-sum(participant_quality$prop_days_with_data < 0.5)
+sum(participant_quality$prop_days_with_data < 0.5) 
+
+# # Count participants with prop_days_with_data < 0.5 by dataset
+# participant_low_data <- participant_quality %>%
+#   group_by(Dataset) %>%
+#   summarise(n_low_data = sum(prop_days_with_data < 0.5, na.rm = TRUE)) %>%
+#   arrange(desc(n_low_data))
+# 
+# participant_low_data
+
 sum(participant_quality$include_participant == TRUE)
 
 
@@ -166,96 +191,185 @@ manyapps_all_apps <- manyapps_14d %>%
   inner_join(included_participants, by = c("Dataset",  "unique_participant_number"))
 
 
-
-
 write.csv(manyapps_all_apps,"/Users/f007qrc/projects/ManyApps_Data/complete_data_cleaning_stage1.csv")
 
 length(unique(manyapps_all_apps$unique_participant_number))
 length(unique(manyapps_all_apps$Dataset))
 
-###########
 
 system_schoedel <- read.csv("/Users/f007qrc/projects/ManyApps_Data/systemapps_schoedel.csv")
 system_schoedel <- system_schoedel$App_name[system_schoedel$Final_Rating == "System"]
 system <- read.csv("/Users/f007qrc/projects/ManyApps_Data/Apps_categorization_final.csv")
 system <- system$app_name[system$googleCats == "system"]
 
-system_all <- c(system,system_schoedel)
+system_all <- unique(c(system,system_schoedel))
+
+sum(manyapps_all_apps$Package_name %in% system_all)/nrow(manyapps_all_apps)
+
 manyapps_all_apps <- manyapps_all_apps[!manyapps_all_apps$Package_name %in% system_all, ]
 
 write.csv(manyapps_all_apps,"/Users/f007qrc/projects/ManyApps_Data/complete_data_cleaning_stage1.csv")
 
+
+manyapps_all_apps <- manyapps_all_apps[!duplicated(manyapps_all_apps[,1:5]),]
+
+
+manyapps_all_apps <- manyapps_all_apps[manyapps_all_apps$duration > 0,]
+
 manyapps_all_apps = read.csv("/Users/f007qrc/projects/ManyApps_Data/complete_data_cleaning_stage1.csv")
+# 
+# # Exclude specific datasets
+# excluded <- c("Corona_Parent", "Corona_Health", "Corona_Stress")
+# 
+# quantile(
+#   manyapps_all_apps$duration[!manyapps_all_apps$Dataset %in% excluded],
+#   0.9999,
+#   na.rm = TRUE
+# )
 
 manyapps_all_apps= manyapps_all_apps[manyapps_all_apps$Dataset == "Corona_Parent" | manyapps_all_apps$Dataset == "Spain 1",]
-manyapps_all_apps = manyapps_all_apps_copy
 
 # ---------------------------
 # Full Overview (Including Package Name)
 # ---------------------------
 
+####
+
+
+
+
 library(dplyr)
 library(tidyr)
 library(lubridate)
+library(data.table)
+library(lubridate)
 
-# robust splitter (seconds)
-split_session <- function(start, end) {
+split_session_fast <- function(start, end) {
   if (is.na(start) || is.na(end) || end <= start) {
-    return(tibble(
+    return(data.table(
       hour_start = as.POSIXct(character(0)),
       hour_end = as.POSIXct(character(0)),
       duration_in_hour_sec = numeric(0)
     ))
   }
   
-  hour_seq <- seq(floor_date(start, "hour"), ceiling_date(end, "hour"), by = "hour")
-  if (length(hour_seq) < 2) {
-    hour_seq <- c(floor_date(start, "hour"), floor_date(start, "hour") + hours(1))
-  }
+  hs <- floor_date(start, "hour")
+  he <- ceiling_date(end, "hour")
+  hour_seq <- seq(hs, he, by = "hour")
+  if (length(hour_seq) < 2) hour_seq <- c(hs, hs + hours(1))
   
-  tibble(
-    hour_start = head(hour_seq, -1),
-    hour_end   = tail(hour_seq, -1)
-  ) %>%
-    mutate(
-      duration_in_hour_sec = pmax(
-        0,
-        pmin(as.numeric(end), as.numeric(hour_end)) -
-          pmax(as.numeric(start), as.numeric(hour_start))
-      )
-    ) %>%
-    filter(duration_in_hour_sec > 0)
+  hour_start <- hour_seq[-length(hour_seq)]
+  hour_end   <- hour_seq[-1]
+  
+  s <- as.numeric(start)
+  e <- as.numeric(end)
+  hs_num <- as.numeric(hour_start)
+  he_num <- as.numeric(hour_end)
+  
+  duration <- pmax(0, pmin(e, he_num) - pmax(s, hs_num))
+  keep <- duration > 0
+  
+  data.table(
+    hour_start = hour_start[keep],
+    hour_end = hour_end[keep],
+    duration_in_hour_sec = duration[keep]
+  )
 }
 
-# ---------------------------
-# Expand to hourly rows, KEEPING all original columns
-# ---------------------------
+DT <- as.data.table(manyapps_all_apps)
+DT[, datetime_clean := as.POSIXct(datetime_clean)]
+DT[, duration := suppressWarnings(as.numeric(duration))]
+DT[, end_time := datetime_clean + duration]
+DT[, is_daily_only := is.na(time_only)]
 
-manyapps_all_apps_split <- manyapps_all_apps %>%
-  mutate(
-    datetime_clean = as.POSIXct(datetime_clean),
-    duration = suppressWarnings(as.numeric(duration)),
-    end_time = datetime_clean + duration,
-    is_daily_only = is.na(time_only)
-  ) %>%
-  filter(!is.na(datetime_clean), !is.na(duration), duration > 0) %>%
-  rowwise() %>%
-  mutate(
-    hourly_list = if (!is_daily_only) {
-      list(split_session(datetime_clean, end_time))
-    } else {
-      list(tibble(
-        hour_start = as.POSIXct(NA),
-        hour_end = as.POSIXct(NA),
-        duration_in_hour_sec = NA_real_
-      ))
-    }
-  ) %>%
-  unnest(hourly_list, keep_empty = TRUE) %>%
-  ungroup() %>%
-  mutate( date_only = as.Date(hour_start), 
-          hourly_time = ifelse(is.na(hour_start), NA, format(hour_start, "%H:00:00")), 
-          day = as.Date(datetime_clean) )
+DT <- DT[!is.na(datetime_clean) & !is.na(duration) & duration > 0]
+DT[, row_id := .I]
+
+expanded <- DT[, {
+  if (is_daily_only) {
+    data.table(
+      hour_start = as.POSIXct(NA),
+      hour_end = as.POSIXct(NA),
+      duration_in_hour_sec = NA_real_
+    )
+  } else {
+    split_session_fast(datetime_clean, end_time)
+  }
+}, by = row_id]
+
+manyapps_all_apps_split <- DT[expanded, on = "row_id", allow.cartesian = TRUE][
+  , `:=`(
+    date_only = as.Date(hour_start),
+    hourly_time = ifelse(is.na(hour_start), NA_character_, format(hour_start, "%H:00:00")),
+    day = as.Date(datetime_clean)
+  )
+][, row_id := NULL]
+
+
+
+# 
+# #######
+# 
+# # robust splitter (seconds)
+# split_session <- function(start, end) {
+#   if (is.na(start) || is.na(end) || end <= start) {
+#     return(tibble(
+#       hour_start = as.POSIXct(character(0)),
+#       hour_end = as.POSIXct(character(0)),
+#       duration_in_hour_sec = numeric(0)
+#     ))
+#   }
+#   
+#   hour_seq <- seq(floor_date(start, "hour"), ceiling_date(end, "hour"), by = "hour")
+#   if (length(hour_seq) < 2) {
+#     hour_seq <- c(floor_date(start, "hour"), floor_date(start, "hour") + hours(1))
+#   }
+#   
+#   tibble(
+#     hour_start = head(hour_seq, -1),
+#     hour_end   = tail(hour_seq, -1)
+#   ) %>%
+#     mutate(
+#       duration_in_hour_sec = pmax(
+#         0,
+#         pmin(as.numeric(end), as.numeric(hour_end)) -
+#           pmax(as.numeric(start), as.numeric(hour_start))
+#       )
+#     ) %>%
+#     filter(duration_in_hour_sec > 0)
+# }
+# 
+# # ---------------------------
+# # Expand to hourly rows, KEEPING all original columns
+# # ---------------------------
+# 
+# manyapps_all_apps_split <- manyapps_all_apps %>%
+#   mutate(
+#     datetime_clean = as.POSIXct(datetime_clean),
+#     duration = suppressWarnings(as.numeric(duration)),
+#     end_time = datetime_clean + duration,
+#     is_daily_only = is.na(time_only)
+#   ) %>%
+#   filter(!is.na(datetime_clean), !is.na(duration), duration > 0) %>%
+#   rowwise() %>%
+#   mutate(
+#     hourly_list = if (!is_daily_only) {
+#       list(split_session(datetime_clean, end_time))
+#     } else {
+#       list(tibble(
+#         hour_start = as.POSIXct(NA),
+#         hour_end = as.POSIXct(NA),
+#         duration_in_hour_sec = NA_real_
+#       ))
+#     }
+#   ) %>%
+#   unnest(hourly_list, keep_empty = TRUE) %>%
+#   ungroup() %>%
+#   mutate( date_only = as.Date(hour_start), 
+#           hourly_time = ifelse(is.na(hour_start), NA, format(hour_start, "%H:00:00")), 
+#           day = as.Date(datetime_clean) )
+
+
 
 # ---------------------------
 # Daily per participant per app
@@ -424,29 +538,6 @@ manyapps_hourly_noapp <- manyapps_hourly_noapp %>%
 
 
 
-
-
-# Exclude problematic hours from app-switch calculations
-manyapps_app_switches_hourly <- manyapps_all_apps %>%
-  mutate(hour = floor_date(timestamp, unit = "hour")) %>%
-  left_join(
-    manyapps_hourly_totals %>%
-      select(Dataset, unique_participant_number, hour, hour_exceeds_60min),
-    by = c("Dataset", "unique_participant_number", "hour")
-  ) %>%
-  filter(is.na(hour_exceeds_60min) | hour_exceeds_60min == FALSE) %>%
-  arrange(Dataset, unique_participant_number, hour, timestamp) %>%
-  group_by(Dataset, unique_participant_number, hour) %>%
-  summarise(
-    app_switches = sum(Package_name != lag(Package_name), na.rm = TRUE),
-    .groups = "drop"
-  ) %>%
-  rename(timestamp = hour)
-
-
-
-
-
 ##### Some plots
 
 
@@ -507,7 +598,7 @@ plot_df <- plot_df %>% mutate( day_group = case_when( wday == "Friday" ~ "Friday
 
 
 
-pa  =ggplot(plot_df,
+pa  = ggplot(plot_df,
             aes(x = hour, y = mean_min, group = wday)) +
   
   # -----------------------
