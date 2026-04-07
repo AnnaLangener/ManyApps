@@ -1,107 +1,8 @@
+### For Ramona ###
 
-##############################################
-########## Combine + Hourly Aggregate ########
-##############################################
 library(data.table)
 library(stringr)
 library(dplyr)
-
-# -------------------------------
-# 1. Set directory and get CSVs
-# -------------------------------
-cleaned_apps_dir <- "/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/all"
-available_csv <- list.files(cleaned_apps_dir, pattern = "\\.csv$", full.names = TRUE)
-
-# -------------------------------
-# 2. Read all CSVs fast
-# -------------------------------
-apps_list <- lapply(available_csv, fread, stringsAsFactors = FALSE, check.names = TRUE)
-names(apps_list) <- sub("\\.csv$", "", basename(available_csv))
-
-# -------------------------------
-# 3. Clean timestamps vectorized
-# -------------------------------
-apps_list <- lapply(apps_list, function(df) {
-  setDT(df)
-  
-  if ("timestamp" %in% names(df)) {
-    ts <- str_remove(as.character(df$timestamp), "\\..*$")
-    
-    parts <- tstrsplit(ts, "[ T]", fixed = FALSE, type.convert = FALSE)
-    df[, date_only := parts[[1]]]
-    df[, time_only := if (length(parts) >= 2) parts[[2]] else NA_character_]
-    
-    df[, datetime_clean := fifelse(
-      is.na(time_only) | time_only == "",
-      date_only,
-      paste(date_only, time_only)
-    )]
-    
-    # normalize types to avoid rbindlist class conflicts
-    df[, `:=`(
-      date_only = as.character(date_only),
-      time_only = as.character(time_only),
-      datetime_clean = as.character(datetime_clean)
-    )]
-  }
-  
-  df
-})
-
-
-# -------------------------------
-# 4. Combine all datasets efficiently
-# -------------------------------
-all_apps_dt <- rbindlist(apps_list, fill = TRUE, ignore.attr=TRUE)  # fill=TRUE handles different column sets
-
-# Convert back to data.frame if needed
-all_apps_df <- as.data.frame(all_apps_dt)
-
-# -------------------------------
-# 5. Analyze participants
-# -------------------------------
-manyapps_all_apps_raw <- all_apps_df
-
-# Unique participants by dataset
-unique_participants_dataset <- unique(manyapps_all_apps_raw[, c("participant_number", "Dataset")])
-table(unique_participants_dataset$Dataset)
-
-# # Unique participants by country
-# unique_participants_country <- unique(manyapps_all_apps_raw[, c("unique_participant_number", "country")])
-# table(unique_participants_country$country)
-# 
-# library(treemapify)
-# # -------------------------------
-# # 1. Summarize participant counts by country
-# # -------------------------------
-# plot_data <- unique_participants_country %>%
-#   group_by(country) %>%
-#   summarise(n_participants = n()) %>%
-#   ungroup() %>%
-#   # Optional: treat numeric codes/NA as "Other"
-#   mutate(country = ifelse(is.na(country) | grepl("^[0-9]+$", country), "Other", country))
-# 
-# # -------------------------------
-# # 2. Treemap plot
-# # -------------------------------
-# ggplot(plot_data, aes(area = n_participants, fill = country, label = country)) +
-#   geom_treemap() +
-#   geom_treemap_text(color = "white", place = "center", size = 12) +
-#   labs(title = "Participants by Country") +
-#   theme(legend.position = "none")
-
-
-manyapps_all_apps_raw <- manyapps_all_apps_raw[, !colnames(manyapps_all_apps_raw) %in% "V1"]
-write.csv(manyapps_all_apps_raw,"/Users/f007qrc/projects/ManyApps_Data/complete_data_beforecleaning.csv")
-
-manyapps_all_apps_raw = read.csv("/Users/f007qrc/projects/ManyApps_Data/complete_data_beforecleaning.csv")
-
-
-sum(is.na(manyapps_all_apps_raw$datetime_clean))/nrow(manyapps_all_apps_raw)
-unique(manyapps_all_apps_raw$Dataset[is.na(manyapps_all_apps_raw$datetime_clean)])
-
-
-rm(all_apps_df,all_apps_dt, apps_list)
 
 #################################################################
 ########## Data Cleaning as described in Preregistration ########
@@ -115,7 +16,7 @@ rm(all_apps_df,all_apps_dt, apps_list)
 # "Package_name": app package identifier [chr]
 # "timestamp": Raw timestamp of start of app usage event [chr]
 # "Dataset": Name for dataset (e.g., WHALE) [chr]
-# "duration": duration of app usage (in seconds!) [num]
+# "duration": duration of app usage (in seconds(!!!)) [num]
 # "unique_participant_number": Dataset + participant_number [paste0(substr(Dataset, 1, 3), "_", participant_number)] (to make sure its unique across datasets) [chr]
 
 # (next variables are baseline variables that are just repeated, if not measured they are coded as "NA")
@@ -525,7 +426,6 @@ top_apps_by_country <- manyapps_app_hourly_final %>%
 # ---------------------------
 
 manyapps_app_hourly_final <- read.csv("/Users/f007qrc/projects/ManyApps_Data/complete_data_split_per_app.csv")[-1]
-
 
 # test <-  c("Corona_Parent", "Spain 1", "MoodyLife")
 # 

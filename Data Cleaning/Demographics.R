@@ -580,7 +580,7 @@ chow_dem <- chow_dem %>%
   ) %>%
   mutate(
     gender = case_when(
-      gender == 0 ~ "female",
+      gender == 2 ~ "female",
       gender == 1 ~ "male",
       gender == 3 ~ "other",
     )
@@ -634,7 +634,7 @@ phonestudy_dem <- phonestudy_dem %>%
   ) %>%
   mutate(
     gender = case_when(
-      gender == 0 ~ "female",
+      gender == 2 ~ "female",
       gender == 1 ~ "male",
       gender == 3 ~ "other",
     )
@@ -738,9 +738,8 @@ dem_moodylife$PANAS_POS <- rowMeans(dem_moodylife[PA_cols], na.rm = TRUE)
 dem_moodylife$PANAS_NEG <- rowMeans(dem_moodylife[NA_cols], na.rm = TRUE)
 dem_moodylife$country <- "Germany"
 dem_moodylife$STRESS <- NA
-dem_moodylife$Dataset <- dem_moodylife$dataset 
 
-dem_moodylife <- dem_moodylife[colnames(dem_moodylife) %in% c("participant_number","age", "gender","Dataset","SWLS","PANAS_POS","PANAS_NEG","country","STRESS")]
+dem_moodylife <- dem_moodylife[colnames(dem_moodylife) %in% c("participant_number","age", "gender","SWLS","PANAS_POS","PANAS_NEG","country","STRESS")]
 
 
 moodylife <- apps_moodylife %>% inner_join(dem_moodylife, by = "participant_number")
