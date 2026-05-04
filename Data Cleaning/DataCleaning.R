@@ -464,6 +464,241 @@ write.csv(stress_apps_daily,"/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/
 
 write.csv(parent_apps_daily,"/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/parent_apps_daily.csv")
 
+############# Corona Heart (Raw Sensor Data) #############
+# Parse app durations from raw sensordata JSON files in Rohdaten_heart.
+corona_heart_raw_dir <- "/Users/f007qrc/projects/ManyApps_Data/Corona Health/Rohdaten_heart"
+corona_heart_raw_files <- list.files(
+  corona_heart_raw_dir,
+  pattern = "\\.csv$",
+  full.names = TRUE
+)
+
+parse_corona_sensordata <- function(sensordata_str, participant_id, dataset_label, tz = "Europe/Berlin") {
+  empty <- data.frame(
+    participant_number = character(0),
+    Package_name = character(0),
+    duration = numeric(0),
+    timestamp = as.Date(character(0)),
+    Dataset = character(0),
+    stringsAsFactors = FALSE
+  )
+
+  if (is.na(sensordata_str) || !nzchar(sensordata_str)) {
+    return(empty)
+  }
+
+  sensor_json <- tryCatch(
+    jsonlite::fromJSON(sensordata_str, simplifyVector = FALSE),
+    error = function(e) NULL
+  )
+  if (is.null(sensor_json) || length(sensor_json) == 0) {
+    return(empty)
+  }
+
+  rows <- lapply(sensor_json, function(item) {
+    if (is.null(item$apps) || length(item$apps) == 0) return(NULL)
+    apps <- item$apps
+    app_rows <- lapply(apps, function(app) {
+      app_name <- if (!is.null(app$packageName)) app$packageName else NA_character_
+      daily_vals <- app$dailyValues
+      if (is.null(daily_vals) || length(daily_vals) == 0) return(NULL)
+
+      dv_rows <- lapply(daily_vals, function(dv) {
+        use_time_raw <- suppressWarnings(as.numeric(dv$useTime))
+        if (length(use_time_raw) != 1 || is.na(use_time_raw) || use_time_raw <= 0) return(NULL)
+
+        # useTime appears to be in milliseconds; normalize to seconds.
+        use_seconds <- use_time_raw / 1000
+
+        ts_candidates <- suppressWarnings(as.numeric(c(
+          dv$firstUseTime, dv$lastUseTime, dv$firstFgServiceUseTime, dv$lastFgServiceUseTime
+        )))
+        ts_candidates <- ts_candidates[is.finite(ts_candidates) & ts_candidates > 0]
+
+        if (length(ts_candidates) == 0) return(NULL)
+
+        day <- as.Date(with_tz(as_datetime(ts_candidates[1], tz = "UTC"), tzone = tz))
+
+        data.frame(
+          participant_number = as.character(participant_id),
+          Package_name = app_name,
+          duration = use_seconds,
+          timestamp = day,
+          Dataset = dataset_label,
+          stringsAsFactors = FALSE
+        )
+      })
+
+      dv_rows <- Filter(Negate(is.null), dv_rows)
+      if (length(dv_rows) == 0) return(NULL)
+      do.call(rbind, dv_rows)
+    })
+
+    app_rows <- Filter(Negate(is.null), app_rows)
+    if (length(app_rows) == 0) return(NULL)
+    do.call(rbind, app_rows)
+  })
+
+  rows <- Filter(Negate(is.null), rows)
+  if (length(rows) == 0) return(empty)
+  do.call(rbind, rows)
+}
+
+corona_heart_raw_list <- lapply(corona_heart_raw_files, function(f) {
+  df <- read.csv(f, stringsAsFactors = FALSE, na.strings = c("", "NA", "NULL"))
+  if (!"sensordata" %in% names(df)) {
+    message("Skipping file (no sensordata): ", f)
+    return(NULL)
+  }
+
+  participant_col <- if ("user_id" %in% names(df)) "user_id" else if ("participant_number" %in% names(df)) "participant_number" else NULL
+  if (is.null(participant_col)) {
+    message("Skipping file (no participant id column): ", f)
+    return(NULL)
+  }
+
+  out <- lapply(seq_len(nrow(df)), function(i) {
+    parse_corona_sensordata(
+      sensordata_str = df$sensordata[i],
+      participant_id = df[[participant_col]][i],
+      dataset_label = "Corona_Heart_Raw",
+      tz = "Europe/Berlin"
+    )
+  })
+
+  out <- Filter(Negate(is.null), out)
+  if (length(out) == 0) return(NULL)
+  bind_rows(out)
+})
+
+corona_heart_raw_apps <- bind_rows(corona_heart_raw_list)
+if (nrow(corona_heart_raw_apps) > 0) {
+  corona_heart_raw_apps$unique_participant_number <- paste0(
+    substr(corona_heart_raw_apps$Dataset, 1, 3),
+    "_",
+    corona_heart_raw_apps$participant_number
+  )
+
+  write.csv(
+    corona_heart_raw_apps,
+    "/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/heart_apps_raw.csv",
+    row.names = FALSE
+  )
+
+  # ----------------------------
+  # Compare raw vs daily outputs
+  # ----------------------------
+  if (exists("heart_apps_daily") && nrow(heart_apps_daily) > 0) {
+    raw_df <- corona_heart_raw_apps %>%
+      mutate(
+        day = as.Date(timestamp),
+        participant_number = as.character(participant_number),
+        Package_name = as.character(Package_name)
+      )
+
+    daily_df <- heart_apps_daily %>%
+      mutate(
+        day = as.Date(timestamp),
+        participant_number = as.character(participant_number),
+        Package_name = as.character(Package_name)
+      )
+
+    # 1) Participant-day totals
+    raw_participant_day <- raw_df %>%
+      group_by(participant_number, day) %>%
+      summarise(raw_total_sec = sum(duration, na.rm = TRUE), .groups = "drop")
+
+    daily_participant_day <- daily_df %>%
+      group_by(participant_number, day) %>%
+      summarise(daily_total_sec = sum(duration, na.rm = TRUE), .groups = "drop")
+
+    participant_day_compare <- full_join(
+      raw_participant_day,
+      daily_participant_day,
+      by = c("participant_number", "day")
+    ) %>%
+      mutate(
+        raw_total_sec = ifelse(is.na(raw_total_sec), 0, raw_total_sec),
+        daily_total_sec = ifelse(is.na(daily_total_sec), 0, daily_total_sec),
+        diff_sec = raw_total_sec - daily_total_sec,
+        ratio_raw_to_daily = ifelse(daily_total_sec > 0, raw_total_sec / daily_total_sec, NA_real_)
+      )
+
+    # 2) App-day totals
+    raw_app_day <- raw_df %>%
+      group_by(Package_name, day) %>%
+      summarise(raw_total_sec = sum(duration, na.rm = TRUE), .groups = "drop")
+
+    daily_app_day <- daily_df %>%
+      group_by(Package_name, day) %>%
+      summarise(daily_total_sec = sum(duration, na.rm = TRUE), .groups = "drop")
+
+    app_day_compare <- full_join(
+      raw_app_day,
+      daily_app_day,
+      by = c("Package_name", "day")
+    ) %>%
+      mutate(
+        raw_total_sec = ifelse(is.na(raw_total_sec), 0, raw_total_sec),
+        daily_total_sec = ifelse(is.na(daily_total_sec), 0, daily_total_sec),
+        diff_sec = raw_total_sec - daily_total_sec,
+        ratio_raw_to_daily = ifelse(daily_total_sec > 0, raw_total_sec / daily_total_sec, NA_real_)
+      )
+
+    # 3) Coverage checks
+    coverage <- data.frame(
+      metric = c(
+        "participants_raw",
+        "participants_daily",
+        "days_raw",
+        "days_daily",
+        "participant_days_raw",
+        "participant_days_daily",
+        "apps_raw",
+        "apps_daily",
+        "app_days_raw",
+        "app_days_daily"
+      ),
+      value = c(
+        length(unique(raw_df$participant_number)),
+        length(unique(daily_df$participant_number)),
+        length(unique(raw_df$day)),
+        length(unique(daily_df$day)),
+        nrow(raw_participant_day),
+        nrow(daily_participant_day),
+        length(unique(raw_df$Package_name)),
+        length(unique(daily_df$Package_name)),
+        nrow(raw_app_day),
+        nrow(daily_app_day)
+      ),
+      stringsAsFactors = FALSE
+    )
+
+    write.csv(
+      participant_day_compare,
+      "/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/heart_compare_participant_day.csv",
+      row.names = FALSE
+    )
+    write.csv(
+      app_day_compare,
+      "/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/heart_compare_app_day.csv",
+      row.names = FALSE
+    )
+    write.csv(
+      coverage,
+      "/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/heart_compare_coverage.csv",
+      row.names = FALSE
+    )
+
+    message(
+      "Heart raw vs daily comparison written to: ",
+      "/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/heart_compare_participant_day.csv, ",
+      "/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/heart_compare_app_day.csv, ",
+      "/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/heart_compare_coverage.csv"
+    )
+  }
+}
+
 
 ############# eMotion ############# 
 # looks clean
@@ -794,3 +1029,69 @@ top20_packages
 write.csv(moodylife,"/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/moodylife_apps.csv")
 
 length(unique(moodylife$participant_number))
+
+
+
+
+###### Ramona [whale] ########
+
+whale <- read.csv("/Users/f007qrc/projects/ManyApps_Data/Ramona/data_sessions_raw.csv")
+
+colnames(whale)
+
+whale$participant_number <- whale$user
+whale$Package_name <- whale$package_no
+whale$participant_number <- whale$user
+
+library(dplyr)
+library(lubridate)
+
+whale <- whale %>%
+  mutate(
+    participant_number = user,
+    Package_name = package_no
+  )
+
+studyday_dates <- whale %>%
+  distinct(studyday_shuffled, timestamp_year, weekday) %>%
+  mutate(
+    jan1 = ymd(paste0(timestamp_year, "-01-01")),
+    target_wday = match(weekday, c("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")),
+    days_to_add = (target_wday - wday(jan1)) %% 7,
+    date_fixed = jan1 + days(days_to_add)
+  ) %>%
+  select(studyday_shuffled, date_fixed) %>%
+  distinct(studyday_shuffled, .keep_all = TRUE)
+
+whale <- whale %>%
+  mutate(
+    timestamp_hour_fixed = if_else(timestamp_hour == 24, 0, timestamp_hour)
+  ) %>%
+  left_join(studyday_dates, by = "studyday_shuffled") %>%
+  mutate(
+    timestamp = date_fixed + hours(timestamp_hour_fixed)
+  ) %>%
+  select(
+    participant_number,
+    Package_name,
+    duration,
+    timestamp,
+    Dataset,
+    studyday_shuffled
+  )
+
+whale <- whale[colnames(whale) %in% c("participant_number","Package_name","duration","timestamp","Dataset" )]
+
+
+whale$unique_participant_number <- paste0(
+  substr(whale$Dataset, 1, 3),
+  "_",
+  whale$participant_number
+)
+whale$timestamp <- format(whale$timestamp, "%Y-%m-%d %H:%M:%S")
+
+
+
+write.csv(whale,"/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/whale_apps.csv")
+
+

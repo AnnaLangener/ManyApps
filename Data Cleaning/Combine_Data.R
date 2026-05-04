@@ -61,7 +61,7 @@ all_apps_df <- as.data.frame(all_apps_dt)
 # 5. Analyze participants
 # -------------------------------
 manyapps_all_apps_raw <- all_apps_df
-
+length(unique(manyapps_all_apps_raw$unique_participant_number))
 # Unique participants by dataset
 unique_participants_dataset <- unique(manyapps_all_apps_raw[, c("participant_number", "Dataset")])
 table(unique_participants_dataset$Dataset)
@@ -206,6 +206,7 @@ participant_quality <- manyapps_day_coverage %>%
 
 sum(participant_quality$prop_days_with_data < 0.5) 
 
+
 # # Count participants with prop_days_with_data < 0.5 by dataset
 # participant_low_data <- participant_quality %>%
 #   group_by(Dataset) %>%
@@ -227,6 +228,13 @@ manyapps_all_apps <- manyapps_14d %>%
 
 length(unique(manyapps_all_apps$unique_participant_number))
 length(unique(manyapps_all_apps$Dataset))
+
+
+length(unique(manyapps_all_apps$unique_participant_number[!is.na(manyapps_all_apps$SWLS)]))
+length(unique(manyapps_all_apps$unique_participant_number[!is.na(manyapps_all_apps$PANAS_NEG)]))
+length(unique(manyapps_all_apps$unique_participant_number[!is.na(manyapps_all_apps$STRESS)]))
+length(unique(manyapps_all_apps$unique_participant_number[!is.na(manyapps_all_apps$PHQ)]))
+
 
 
 #Filter out system apps based on Ramonas Category System and Google
@@ -518,21 +526,12 @@ top_apps_by_country <- manyapps_app_hourly_final %>%
   ungroup()
 
 
-### CHECKED UNTIL HERE, CONTINUE HERE
 
 # ---------------------------
 # No-app hourly table (keep demographics/other columns)
 # ---------------------------
 
 manyapps_app_hourly_final <- read.csv("/Users/f007qrc/projects/ManyApps_Data/complete_data_split_per_app.csv")[-1]
-
-
-# test <-  c("Corona_Parent", "Spain 1", "MoodyLife")
-# 
-# manyapps_app_hourly_final <- manyapps_app_hourly_final[manyapps_app_hourly_final$Dataset %in% test,]
-# "total_hourly_app_usage"  sum per hour in seconds
-# "total_daily_app_usage" sum per day in seconds
-# "study_average_daily_app_usage" mean over observed days, does not include not observed days, so might not be accurate
 
 
 join_keys_hour <- c("Dataset", "unique_participant_number", "day", "hourly_time")
@@ -635,6 +634,79 @@ manyapps_hourly_noapp <- manyapps_hourly_noapp %>%
   left_join(uapps_overall, by = join_keys_person) 
 
 
+
+write.csv(manyapps_hourly_noapp,"/Users/f007qrc/projects/ManyApps_Data/Final_noapp_overview.csv")
+
+
+############### Create hours with zero app usage ##############
+
+library(dplyr)
+library(tidyr)
+library(lubridate)
+
+manyapps_hourly_noapp <- read.csv("/Users/f007qrc/projects/ManyApps_Data/Final_noapp_overview.csv")[-1]
+
+colnames(manyapps_hourly_noapp)
+
+manyapps_hourly_noapp <- manyapps_hourly_noapp %>%
+  select(-participant_number, -session_end)
+
+manyapps_hourly_noapp <- manyapps_hourly_noapp %>%
+  mutate(
+    day = as.Date(day),
+    hourly_time = as.character(hourly_time)
+  ) %>%
+  group_by(unique_participant_number) %>%
+  mutate(first_day = min(day, na.rm = TRUE)) %>%
+  group_by(unique_participant_number, day) %>%
+  group_modify(~ {
+    
+    # if it's the first day → return as-is
+    if (.y$day == unique(.x$first_day)) {
+      return(.x)
+    }
+    
+    # otherwise → complete all 24 hours
+    .x %>%
+      complete(hourly_time = sprintf("%02d:00:00", 0:23)) %>%
+      mutate(
+        hourly_usage_raw = replace_na(hourly_usage_raw, 0),
+        unique_apps_hour = replace_na(unique_apps_hour, 0),
+        total_hourly_app_usage = replace_na(total_hourly_app_usage, 0)
+      )
+  }) %>%
+  ungroup() %>%
+  fill(
+    Dataset,
+    unique_participant_number,
+    age,
+    gender,
+    PHQ,
+    PANAS_POS,
+    PANAS_NEG,
+    STRESS,
+    SWLS,
+    age_group,
+    country,
+    total_daily_app_usage,
+    study_average_daily_app_usage,
+    unique_apps_day,
+    unique_apps_overall,
+    
+    .direction = "downup"
+  ) %>%
+  select(-first_day)
+
+
+manyapps_hourly_noapp <- manyapps_hourly_noapp %>%
+  mutate(
+    hour_start = as.POSIXct(
+      paste(day, hourly_time),
+      format = "%Y-%m-%d %H:%M:%S"
+    )
+  )
+
+colnames(manyapps_hourly_noapp)
 
 write.csv(manyapps_hourly_noapp,"/Users/f007qrc/projects/ManyApps_Data/Final_noapp_overview.csv")
 

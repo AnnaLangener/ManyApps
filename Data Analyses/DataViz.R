@@ -15,11 +15,9 @@ top_apps_by_sample <- read.csv("/Users/f007qrc/projects/ManyApps_Data/top_apps_b
 manyapps_hourly_noapp <- read.csv("/Users/f007qrc/projects/ManyApps_Data/Final_noapp_overview.csv")
 
 
-
 ###########
 
 length(unique(manyapps_hourly_noapp$unique_participant_number))
-length(unique(manyapps_hourly_noapp$Dataset))
 
 
 ###########
@@ -32,9 +30,6 @@ daily <- manyapps_hourly_noapp %>%
   )
 
 # median minutes of application time across all applications per hour were 15.2 (per day = 364; daily range = 0 to 1,440)
-
-mean(daily$total_daily_app_usage)/60
-median(daily$total_daily_app_usage)/60
 
 mean(daily$total_daily_app_usage)/60/60
 median(daily$total_daily_app_usage)/60/60
@@ -54,15 +49,39 @@ mean(na.omit(manyapps_hourly_noapp$total_hourly_app_usage))/60
 median(na.omit(manyapps_hourly_noapp$total_hourly_app_usage))/60
 
 
+plot_df <-
+  manyapps_hourly_noapp %>%
+  mutate(
+    hour = lubridate::hour(lubridate::hms(hourly_time)),
+    wday_num = lubridate::wday(day, week_start = 1),
+    wday = factor(
+      wday_num,
+      levels = 1:7,
+      labels = c("Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday")
+    )
+  ) %>%
+  group_by(Dataset, unique_participant_number,wday, hour) %>%   # <-- add dataset here
+  summarise(
+    median_min = median(total_hourly_app_usage, na.rm = TRUE)/60,
+    sd_min = sd(total_hourly_app_usage, na.rm = TRUE)/60,
+    .groups = "drop"
+  )
+
+
 ################
 
 
 length(unique(manyapps_hourly_noapp$unique_participant_number))
 length(unique(manyapps_hourly_noapp$Dataset))
 
+plot_hour(manyapps_all_apps,NULL)
 
+plot_hour <- function(manyapps_all_apps, dataset){
+
+data = unique(manyapps_all_apps$Dataset)
 # One plot: 7 weekday lines across 24 hours (with SD ribbon)
-plot_df <- manyapps_hourly_noapp %>%
+plot_df <- #manyapps_hourly_noapp[manyapps_all_apps$Dataset == dataset,] %>%
+  manyapps_hourly_noapp%>%
   mutate(
     hour = lubridate::hour(lubridate::hms(hourly_time)),
     wday_num = lubridate::wday(day, week_start = 1),
@@ -112,7 +131,7 @@ geom_line(
   data = subset(plot_df, day_group == "Weekday"),
   color = "#A0A6AC",
   linewidth = 0.9,
-  alpha = 0.40
+  alpha = 0.90
 ) +
   
   # Friday
@@ -204,7 +223,7 @@ geom_vline(
   annotate(
     "label",
     x = min_hour_df$hour,
-    y = 6,  # slightly above line
+    y = 11,  # slightly above line
     label = paste0("Lowest usage\n", min_hour_df$hour, ":00"),
     size = 3.6,
     label.size = 0,
@@ -222,7 +241,7 @@ geom_vline(
 
 
 pa
-
+}
 
 # One plot: 7 weekday lines across 24 hours (with SD ribbon)
 plot_df <- manyapps_hourly_noapp %>%

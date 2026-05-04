@@ -756,3 +756,65 @@ write.csv(
   "/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/all/moody_apps_with_dem.csv",
   row.names = FALSE
 )
+
+
+
+
+##### Whale ####
+
+whale_dem <- read.csv("/Users/f007qrc/projects/ManyApps_Data/Ramona/data_survey.csv")
+length(unique(whale_dem$user))
+
+whale_apps <- read.csv("/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/whale_apps.csv")[-1]
+length(unique(whale_apps$participant_number))
+
+
+PA_cols <- c("PANAS_1","PANAS_2","PANAS_3","PANAS_4","PANAS_5","PANAS_6","PANAS_7","PANAS_8","PANAS_9", "PANAS_10")
+NA_cols <- c("PANAS_11","PANAS_12","PANAS_13","PANAS_14","PANAS_15","PANAS_16","PANAS_17","PANAS_18","PANAS_19", "PANAS_20")
+
+swls_cols <- c("SWLS_1", "SWLS_2", "SWLS_3", "SWLS_4", "SWLS_5")
+whale_dem$participant_number <-whale_dem$user
+# Compute row-wise mean SWLS score
+whale_dem$SWLS <- rowMeans(whale_dem[swls_cols], na.rm = TRUE)
+whale_dem$PANAS_POS <- rowMeans(whale_dem[PA_cols], na.rm = TRUE)
+whale_dem$PANAS_NEG <- rowMeans(whale_dem[NA_cols], na.rm = TRUE)
+whale_dem$country <- "Germany"
+whale_dem$STRESS <- NA
+
+library(dplyr)
+
+whale_dem <- whale_dem %>%
+  mutate(
+    gender = recode(gender,
+                    `1` = "male",
+                    `2` = "female")
+  )
+
+whale_dem <- whale_dem[colnames(whale_dem) %in% c("participant_number","age", "gender","SWLS","PANAS_POS","PANAS_NEG","country","STRESS")]
+length(unique(whale_dem$participant_number))
+length(unique(whale_apps$participant_number))
+
+
+sum(whale_dem$participant_number %in% whale_apps$participant_number)
+ 
+whale <- whale_apps %>% inner_join(whale_dem, by = "participant_number")
+
+
+
+length(unique(whale$participant_number))
+length(unique(whale$participant_number[!is.na(whale$SWLS)]))
+
+write.csv(
+  whale,
+  "/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/all/whale_apps_with_dem.csv",
+  row.names = FALSE
+)
+
+
+
+#https://ogg.osu.edu/media/documents/MB%20Stream/PANAS.pdf
+
+# 1 ist männlich, 2 weiblich. 
+
+
+
