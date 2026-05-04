@@ -111,7 +111,7 @@ Shares are then summed within each grouping and app. The final ranking selects t
 -   `rank`: rank within group
 -   `mean_share`: average participant-level share, calculated as `share / n_people`
 
-Notes: WHALE study does not include this information. So we ignore it for RQ4. Usage is based on total_daily_app_usage. Missing values are ignored when summing minutes.
+Notes: **WHALE study does not include this information. So we ignore it for RQ4.** Usage is based on total_daily_app_usage. Missing values are ignored when summing minutes.
 
 ## `Data Analyses/`
 
