@@ -456,6 +456,7 @@ write.csv(top_apps_by_agegroup,"/Users/f007qrc/projects/ManyApps_Data/top_apps_b
 
 
 top_apps_by_gender <- manyapps_app_hourly_final %>%
+  filter(Dataset != "WHALE") %>% 
   mutate(app_minutes = total_daily_app_usage) %>% # daily because of corona studies
   group_by(unique_participant_number, Package_name, Dataset, age_group, gender) %>%
   summarise(app_minutes = sum(app_minutes, na.rm = TRUE), .groups = "drop") %>%
@@ -480,6 +481,7 @@ write.csv(top_apps_by_gender,"/Users/f007qrc/projects/ManyApps_Data/top_apps_by_
 
 
 top_apps_by_sample <- manyapps_app_hourly_final %>%
+  filter(Dataset != "WHALE") %>% 
   mutate(app_minutes = total_daily_app_usage) %>% # daily because of corona studies
   group_by(unique_participant_number, Package_name, Dataset, age_group, gender) %>%
   summarise(app_minutes = sum(app_minutes, na.rm = TRUE), .groups = "drop") %>%
@@ -506,6 +508,7 @@ rm(top_apps_by_agegroup,top_apps_by_gender,top_apps_by_sample)
 
 
 top_apps_by_country <- manyapps_app_hourly_final %>%
+  filter(Dataset != "WHALE") %>% 
   mutate(app_minutes = total_daily_app_usage) %>% # daily because of corona studies
   group_by(unique_participant_number, Package_name, Dataset, age_group, gender,country) %>%
   summarise(app_minutes = sum(app_minutes, na.rm = TRUE), .groups = "drop") %>%
@@ -661,12 +664,10 @@ manyapps_hourly_noapp <- manyapps_hourly_noapp %>%
   group_by(unique_participant_number, day) %>%
   group_modify(~ {
     
-    # if it's the first day → return as-is
     if (.y$day == unique(.x$first_day)) {
       return(.x)
     }
     
-    # otherwise → complete all 24 hours
     .x %>%
       complete(hourly_time = sprintf("%02d:00:00", 0:23)) %>%
       mutate(
@@ -676,9 +677,9 @@ manyapps_hourly_noapp <- manyapps_hourly_noapp %>%
       )
   }) %>%
   ungroup() %>%
+  group_by(unique_participant_number) %>%   # <- fill only within participant
   fill(
     Dataset,
-    unique_participant_number,
     age,
     gender,
     PHQ,
@@ -692,9 +693,9 @@ manyapps_hourly_noapp <- manyapps_hourly_noapp %>%
     study_average_daily_app_usage,
     unique_apps_day,
     unique_apps_overall,
-    
     .direction = "downup"
   ) %>%
+  ungroup() %>%
   select(-first_day)
 
 
@@ -707,6 +708,14 @@ manyapps_hourly_noapp <- manyapps_hourly_noapp %>%
   )
 
 colnames(manyapps_hourly_noapp)
+
+# Bring chow dataset in right scale
+
+manyapps_hourly_noapp <- manyapps_hourly_noapp %>%
+  mutate(
+    PANAS_POS = ifelse(Dataset == "Chow_APPUSAGE", PANAS_POS / 10, PANAS_POS),
+    PANAS_NEG = ifelse(Dataset == "Chow_APPUSAGE", PANAS_NEG / 10, PANAS_NEG)
+  )
 
 write.csv(manyapps_hourly_noapp,"/Users/f007qrc/projects/ManyApps_Data/Final_noapp_overview.csv")
 
