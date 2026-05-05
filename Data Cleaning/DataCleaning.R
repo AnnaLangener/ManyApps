@@ -856,7 +856,10 @@ top20_packages <- study_smart %>%
   arrange(desc(total_duration)) %>%
   slice_head(n = 20)
 
-#top20_packages
+study_smart$timestamp <- format(
+  study_smart$timestamp,
+  "%Y-%m-%d %H:%M:%S"
+)
 
 write.csv(study_smart,"/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/study_smart.csv")
 
@@ -1034,17 +1037,14 @@ length(unique(moodylife$participant_number))
 
 
 ###### Ramona [whale] ########
-
 whale <- read.csv("/Users/f007qrc/projects/ManyApps_Data/Ramona/data_sessions_raw.csv")
 
-colnames(whale)
+length(unique(whale$user))
 
-whale$participant_number <- whale$user
-whale$Package_name <- whale$package_no
-whale$participant_number <- whale$user
 
 library(dplyr)
 library(lubridate)
+library(purrr)
 
 whale <- whale %>%
   mutate(
@@ -1052,22 +1052,105 @@ whale <- whale %>%
     Package_name = package_no
   )
 
-studyday_dates <- whale %>%
-  distinct(studyday_shuffled, timestamp_year, weekday) %>%
-  mutate(
-    jan1 = ymd(paste0(timestamp_year, "-01-01")),
-    target_wday = match(weekday, c("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")),
-    days_to_add = (target_wday - wday(jan1)) %% 7,
-    date_fixed = jan1 + days(days_to_add)
-  ) %>%
-  select(studyday_shuffled, date_fixed) %>%
-  distinct(studyday_shuffled, .keep_all = TRUE)
+assign_compact_dates_unordered <- function(df_part) {
+  year_val <- unique(df_part$timestamp_year)
+  
+  if (length(year_val) != 1) {
+    stop("Each participant-year group must contain exactly one year.")
+  }
+  
+  all_dates <- seq.Date(
+    ymd(paste0(year_val, "-01-01")),
+    ymd(paste0(year_val, "-12-31")),
+    by = "day"
+  )
+  
+  df_part <- df_part %>%
+    mutate(
+      target_wday = match(weekday, c("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"))
+    )
+  
+  best_start <- NULL
+  best_dates <- NULL
+  best_span <- Inf
+  
+  for (start_idx in seq_along(all_dates)) {
+    used_dates <- as.Date(character(0))
+    assigned_dates <- as.Date(rep(NA, nrow(df_part)))
+    
+    for (i in seq_len(nrow(df_part))) {
+      candidates <- all_dates[
+        all_dates >= all_dates[start_idx] &
+          wday(all_dates) == df_part$target_wday[i] &
+          !(all_dates %in% used_dates)
+      ]
+      
+      if (length(candidates) == 0) {
+        assigned_dates <- NULL
+        break
+      }
+      
+      chosen <- min(candidates)
+      assigned_dates[i] <- chosen
+      used_dates <- c(used_dates, chosen)
+    }
+    
+    if (!is.null(assigned_dates)) {
+      span <- as.numeric(max(assigned_dates) - min(assigned_dates))
+      
+      if (span < best_span) {
+        best_span <- span
+        best_start <- all_dates[start_idx]
+        best_dates <- assigned_dates
+      }
+    }
+  }
+  
+  if (is.null(best_dates)) {
+    stop(
+      paste(
+        "No valid compact assignment for participant",
+        unique(df_part$participant_number),
+        "year",
+        year_val
+      )
+    )
+  }
+  
+  # Randomize assignment within weekday groups so same-weekday rows do not always
+  # get the earliest possible date in the window.
+  df_part$date_fixed <- best_dates
+  
+  df_part %>%
+    group_by(weekday) %>%
+    mutate(date_fixed = sample(date_fixed)) %>%
+    ungroup() %>%
+    select(participant_number, studyday_shuffled, date_fixed)
+}
+
+studyday_lookup <- whale %>%
+  arrange(participant_number, studyday_shuffled) %>%
+  group_by(participant_number, studyday_shuffled) %>%
+  summarise(
+    timestamp_year = first(timestamp_year),
+    weekday = first(weekday),
+    .groups = "drop"
+  )
+
+studyday_dates <- studyday_lookup %>%
+  group_by(participant_number, timestamp_year) %>%
+  group_split() %>%
+  map_dfr(assign_compact_dates_unordered)
 
 whale <- whale %>%
   mutate(
     timestamp_hour_fixed = if_else(timestamp_hour == 24, 0, timestamp_hour)
   ) %>%
-  left_join(studyday_dates, by = "studyday_shuffled") %>%
+  left_join(
+    studyday_dates,
+    by = c("participant_number", "studyday_shuffled"),
+    relationship = "many-to-one"
+  ) %>%
   mutate(
     timestamp = date_fixed + hours(timestamp_hour_fixed)
   ) %>%
@@ -1076,9 +1159,10 @@ whale <- whale %>%
     Package_name,
     duration,
     timestamp,
-    Dataset,
-    studyday_shuffled
+    Dataset
   )
+
+
 
 whale <- whale[colnames(whale) %in% c("participant_number","Package_name","duration","timestamp","Dataset" )]
 
@@ -1088,10 +1172,8 @@ whale$unique_participant_number <- paste0(
   "_",
   whale$participant_number
 )
-whale$timestamp <- format(whale$timestamp, "%Y-%m-%d %H:%M:%S")
+whale$timestamp <- format(as.POSIXct(whale$timestamp, "%Y-%m-%d %H:%M:%S"))
 
 
 
 write.csv(whale,"/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/whale_apps.csv")
-
-

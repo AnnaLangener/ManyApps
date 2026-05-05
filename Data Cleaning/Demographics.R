@@ -69,10 +69,17 @@ colnames(erc_apps_with_dem)
 # Gender: 1: male, 2: female, 3: divers
 
 library(readxl)
+library(readr)
 
-study_smart <- read.csv("/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/study_smart.csv", stringsAsFactors = FALSE)[-1]
+study_smart <- read_csv(
+  "/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/study_smart.csv",
+  col_types = cols(
+    timestamp = col_datetime(format = "%Y-%m-%d %H:%M:%S")
+  )
+)[-1]
+
 length(unique(study_smart$participant_number))
-
+colSums(is.na(study_smart))
 
 study_smart <- study_smart %>%
   mutate(
@@ -136,6 +143,15 @@ study_smart_with_dem$SWLS <- NA
 study_smart_with_dem$PHQ <- NA
 
 study_smart_with_dem
+colSums(is.na(study_smart_with_dem))
+
+
+
+study_smart_with_dem$timestamp <- format(
+  study_smart_with_dem$timestamp,
+  "%Y-%m-%d %H:%M:%S"
+)
+
 
 # optional save
 write.csv(
@@ -238,6 +254,7 @@ aurelio_dem$STRESS <- NA
 aurelio_dem$PHQ <- NA
 
 length(unique(aurelio_dem$participant_number[aurelio_dem$Dataset == "Spain 1" & !is.na(aurelio_dem$SWLS)]))
+colSums(is.na(aurelio_dem))
 
 
 # optional save
@@ -765,15 +782,24 @@ write.csv(
 whale_dem <- read.csv("/Users/f007qrc/projects/ManyApps_Data/Ramona/data_survey.csv")
 length(unique(whale_dem$user))
 
-whale_apps <- read.csv("/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/whale_apps.csv")[-1]
-length(unique(whale_apps$participant_number))
 
+whale_apps <- read_csv(
+  "/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/whale_apps.csv",
+  col_types = cols(
+    timestamp = col_datetime(format = "%Y-%m-%d %H:%M:%S")
+  )
+)[-1]
+
+length(unique(whale_apps$participant_number))
 
 PA_cols <- c("PANAS_1","PANAS_2","PANAS_3","PANAS_4","PANAS_5","PANAS_6","PANAS_7","PANAS_8","PANAS_9", "PANAS_10")
 NA_cols <- c("PANAS_11","PANAS_12","PANAS_13","PANAS_14","PANAS_15","PANAS_16","PANAS_17","PANAS_18","PANAS_19", "PANAS_20")
 
 swls_cols <- c("SWLS_1", "SWLS_2", "SWLS_3", "SWLS_4", "SWLS_5")
-whale_dem$participant_number <-whale_dem$user
+whale_dem$participant_number <- whale_dem$user
+whale_dem <- whale_dem[!duplicated(whale_dem$participant_number), ]
+
+
 # Compute row-wise mean SWLS score
 whale_dem$SWLS <- rowMeans(whale_dem[swls_cols], na.rm = TRUE)
 whale_dem$PANAS_POS <- rowMeans(whale_dem[PA_cols], na.rm = TRUE)
@@ -803,6 +829,13 @@ whale <- whale_apps %>% inner_join(whale_dem, by = "participant_number")
 
 length(unique(whale$participant_number))
 length(unique(whale$participant_number[!is.na(whale$SWLS)]))
+
+
+whale$timestamp <- format(
+  whale$timestamp,
+  "%Y-%m-%d %H:%M:%S"
+)
+
 
 write.csv(
   whale,

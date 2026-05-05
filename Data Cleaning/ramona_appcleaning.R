@@ -32,6 +32,31 @@ library(dplyr)
 # "time_only": Cleaned hour from timestamp: "HH:MM:SS"  (e.g., 19:09:23) [chr]
 # "datetime_clean": Cleaned date from timestamp"  "YYYY-MM-DD HH:MM:SS" or ""YYYY-MM-DD" for corona datasets(e.g., 2023-06-13 19:09:23) [chr]
 
+
+
+manyapps_all_apps_raw <- read.csv("/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/all/whale_apps_with_dem.csv")
+manyapps_all_apps_raw$timestamp <- as.character(manyapps_all_apps_raw$timestamp)
+
+parts <- strsplit(manyapps_all_apps_raw$timestamp, "[ T]")
+
+manyapps_all_apps_raw$date_only <- sapply(parts, function(x) x[1])
+
+manyapps_all_apps_raw$time_only <- sapply(parts, function(x) {
+  if (length(x) >= 2) x[2] else NA_character_
+})
+
+manyapps_all_apps_raw$datetime_clean <- ifelse(
+  is.na(manyapps_all_apps_raw$time_only) | manyapps_all_apps_raw$time_only == "",
+  manyapps_all_apps_raw$date_only,
+  paste(manyapps_all_apps_raw$date_only, manyapps_all_apps_raw$time_only)
+)
+
+manyapps_all_apps_raw$date_only <- as.character(manyapps_all_apps_raw$date_only)
+manyapps_all_apps_raw$time_only <- as.character(manyapps_all_apps_raw$time_only)
+manyapps_all_apps_raw$datetime_clean <- as.character(manyapps_all_apps_raw$datetime_clean)
+
+#########
+
 # add age group column: age groups will be categorized into 5-year bins following Diaz et al. (2021). Specifically, ages 18–19 will form one group, followed by 20–24 and 25–29
 unique(manyapps_all_apps_raw$age)
 
@@ -105,7 +130,7 @@ participant_quality <- manyapps_day_coverage %>%
     .groups = "drop"
   )
 
-sum(participant_quality$prop_days_with_data < 0.5) 
+sum(participant_quality$prop_days_with_data <= 0.5) 
 
 # # Count participants with prop_days_with_data < 0.5 by dataset
 # participant_low_data <- participant_quality %>%

@@ -15,7 +15,7 @@ available_csv <- list.files(cleaned_apps_dir, pattern = "\\.csv$", full.names = 
 # -------------------------------
 # 2. Read all CSVs fast
 # -------------------------------
-apps_list <- lapply(available_csv, fread, stringsAsFactors = FALSE, check.names = TRUE)
+apps_list <- lapply(available_csv, fread, stringsAsFactors = FALSE, check.names = TRUE, colClasses = list(character = "timestamp"))
 names(apps_list) <- sub("\\.csv$", "", basename(available_csv))
 
 # -------------------------------
@@ -25,7 +25,11 @@ apps_list <- lapply(apps_list, function(df) {
   setDT(df)
   
   if ("timestamp" %in% names(df)) {
-    ts <- str_remove(as.character(df$timestamp), "\\..*$")
+    ts <- as.character(df$timestamp)
+    
+    ts <- str_remove(ts, "\\.\\d+.*$")   # remove fractional seconds if present
+    ts <- str_remove(ts, "\\s+UTC$")     # remove trailing UTC
+    ts <- str_trim(ts)
     
     parts <- tstrsplit(ts, "[ T]", fixed = FALSE, type.convert = FALSE)
     df[, date_only := parts[[1]]]
@@ -92,9 +96,8 @@ table(unique_participants_dataset$Dataset)
 
 
 manyapps_all_apps_raw <- manyapps_all_apps_raw[, !colnames(manyapps_all_apps_raw) %in% "V1"]
-write.csv(manyapps_all_apps_raw,"/Users/f007qrc/projects/ManyApps_Data/complete_data_beforecleaning.csv")
-
-manyapps_all_apps_raw = read.csv("/Users/f007qrc/projects/ManyApps_Data/complete_data_beforecleaning.csv")
+#write.csv(manyapps_all_apps_raw,"/Users/f007qrc/projects/ManyApps_Data/complete_data_beforecleaning.csv")
+#manyapps_all_apps_raw = read.csv("/Users/f007qrc/projects/ManyApps_Data/complete_data_beforecleaning.csv")
 
 
 sum(is.na(manyapps_all_apps_raw$datetime_clean))/nrow(manyapps_all_apps_raw)
@@ -215,12 +218,12 @@ sum(participant_quality$prop_days_with_data < 0.5)
 # 
 # participant_low_data
 
-sum(participant_quality$include_participant == TRUE)
+sum(participant_quality$include_participant == FALSE & participant_quality$Dataset != "WHALE")
 
 
 included_participants <- participant_quality %>%
-  filter(include_participant) %>%
-  select(Dataset,  unique_participant_number)
+  filter(include_participant | Dataset == "WHALE") %>%
+  select(Dataset, unique_participant_number)
 
 manyapps_all_apps <- manyapps_14d %>%
   inner_join(included_participants, by = c("Dataset",  "unique_participant_number"))
@@ -255,10 +258,13 @@ manyapps_all_apps <- manyapps_all_apps[!manyapps_all_apps$Package_name %in% syst
 manyapps_all_apps <- manyapps_all_apps[!duplicated(manyapps_all_apps[,1:5]),] # based on participant_number, Package_name, timestamp, Dataset, duration
 manyapps_all_apps <- manyapps_all_apps[manyapps_all_apps$duration > 0,]
 
+colSums(is.na(manyapps_all_apps))
 
-write.csv(manyapps_all_apps,"/Users/f007qrc/projects/ManyApps_Data/complete_data_cleaning_stage1.csv")
 
-manyapps_all_apps = read.csv("/Users/f007qrc/projects/ManyApps_Data/complete_data_cleaning_stage1.csv")
+test_age = manyapps_all_apps[is.na(manyapps_all_apps$age),]
+#write.csv(manyapps_all_apps,"/Users/f007qrc/projects/ManyApps_Data/complete_data_cleaning_stage1.csv")
+
+#manyapps_all_apps = read.csv("/Users/f007qrc/projects/ManyApps_Data/complete_data_cleaning_stage1.csv")
 
 # test <-  c("Corona_Parent", "Spain 1", "MoodyLife")
 # 
@@ -422,7 +428,10 @@ manyapps_app_hourly_final <- manyapps_all_apps_split %>%
 
 #rm(manyapps_all_apps_split,participant_app_daily)
 
-write.csv(manyapps_app_hourly_final,"/Users/f007qrc/projects/ManyApps_Data/complete_data_split_per_app.csv") ## Includes all datasets besides Ramonas (02/04)
+manyapps_app_hourly_final$hour_start <- format(manyapps_app_hourly_final$hour_start, "%Y-%m-%d %H:%M:%S")
+
+
+write.csv(manyapps_app_hourly_final,"/Users/f007qrc/projects/ManyApps_Data/complete_data_split_per_app.csv") 
 
 # ---------------------------
 # Create dataframe for RQ4
@@ -534,7 +543,7 @@ top_apps_by_country <- manyapps_app_hourly_final %>%
 # No-app hourly table (keep demographics/other columns)
 # ---------------------------
 
-manyapps_app_hourly_final <- read.csv("/Users/f007qrc/projects/ManyApps_Data/complete_data_split_per_app.csv")[-1]
+#manyapps_app_hourly_final <- read.csv("/Users/f007qrc/projects/ManyApps_Data/complete_data_split_per_app.csv")[-1]
 
 
 join_keys_hour <- c("Dataset", "unique_participant_number", "day", "hourly_time")
@@ -637,7 +646,10 @@ manyapps_hourly_noapp <- manyapps_hourly_noapp %>%
   left_join(uapps_overall, by = join_keys_person) 
 
 
-
+manyapps_hourly_noapp$hour_start <- as.POSIXct(
+  manyapps_hourly_noapp$hour_start,
+  format = "%Y-%m-%d %H:%M:%S"
+)
 write.csv(manyapps_hourly_noapp,"/Users/f007qrc/projects/ManyApps_Data/Final_noapp_overview.csv")
 
 
@@ -647,7 +659,7 @@ library(dplyr)
 library(tidyr)
 library(lubridate)
 
-manyapps_hourly_noapp <- read.csv("/Users/f007qrc/projects/ManyApps_Data/Final_noapp_overview.csv")[-1]
+#manyapps_hourly_noapp <- read.csv("/Users/f007qrc/projects/ManyApps_Data/Final_noapp_overview.csv")[-1]
 
 colnames(manyapps_hourly_noapp)
 
