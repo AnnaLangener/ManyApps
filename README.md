@@ -32,9 +32,9 @@ Other scripts
 
 ## Main Outputs Data Cleaning (see Combine_Data.R):
 
-### Hourly and Daily Total App Usage (RQ 1-3) `manyapps_hourly_noapp`
+### Hourly and Daily Total App Usage (RQ 1-3) Final_noapp_overview.csv
 
-This dataset summarizes total smartphone usage without app-level detail, derived from cleaned and processed app event data.
+This dataset summarizes total smartphone usage without app-level detail, derived from cleaned and processed app event data. It also includes hours with zero hours.
 
 Includes only participants and days passing preregistered quality criteria: - Age ≥ 18 - First 14 days per participant - ≥ 50% observed days AND ≥ 7 valid days - System apps removed - Duplicate and zero-duration events removed
 
