@@ -78,6 +78,10 @@ For all days except the first: - Missing hours are filled to create full 24-hour
 -   `unique_apps_overall`: total distinct apps used [per participant]
 -   `hour_start`: timestamp for each hour [per participant × day × hour]
 -   demographic variables: `age`, `gender`, `age_group`, `country`, etc.
+-   PHQ: scale 0 to 3 (mean) [per participant]
+-   SWLS: scale 1 to 7 (mean) [per participant]
+-   Stress: scale 1 to 5 (mean) [per participant]
+-   PANAS: min max scaled [PANAS_NEG/ PANAS_POS], 1 to 5 [PANAS_NEG_5] and 1 to 7 [PANAS_NEG_7] (mean) [per participant]
 
 ## Notes
 
