@@ -735,7 +735,54 @@ ggsave(
 )
 
 
-###################
+####################### Exploratory #############
+#################################################
+participant_use <- manyapps_hourly_noapp %>%
+  mutate(day = as.Date(day)) %>%
+  distinct(
+    unique_participant_number,
+    Dataset,
+    study_average_daily_app_usage,
+    day
+  ) %>%
+  group_by(unique_participant_number, Dataset) %>%
+  summarise(
+    study_average_daily_app_usage_hr = first(study_average_daily_app_usage) / 60 / 60,
+    year = lubridate::year(min(day, na.rm = TRUE)),
+    .groups = "drop"
+  )
+
+usage_by_year <- participant_use %>%
+  group_by(year) %>%
+  summarise(
+    mean_daily_usage_hr = mean(study_average_daily_app_usage_hr, na.rm = TRUE),
+    median_daily_usage_hr = median(study_average_daily_app_usage_hr, na.rm = TRUE),
+    n_participants = n(),
+    .groups = "drop"
+  )
+
+ggplot(usage_by_year, aes(x = year, y = mean_daily_usage_hr)) +
+  geom_line(color = base_col, linewidth = 0.8) +
+  geom_point(
+    aes(size = n_participants),
+    color = accent_col,
+    alpha = 0.8
+  ) +
+  scale_size_continuous(
+    name = "Participants",
+    range = c(3, 10)
+  ) +
+  labs(
+    x = "Year",
+    y = "Mean daily app usage (hours)",
+    title = "Average Daily Smartphone Use Across Years"
+  ) +
+  theme_ipsum()
+
+
+
+
+####################################
 
 
 
@@ -807,8 +854,6 @@ min_hour_df <- plot_df %>%
 
 plot_df <- plot_df %>% mutate( day_group = case_when( wday == "Friday" ~ "Friday", wday == "Saturday" ~ "Saturday", wday == "Sunday" ~ "Sunday", TRUE ~ "Weekday" ) )
 
-
-
 pa  = ggplot(plot_df,
              aes(x = hour, y = mean_min, group = wday)) +
   
@@ -824,21 +869,21 @@ geom_line(
   # Friday
   geom_line(
     data = subset(plot_df, day_group == "Friday"),
-    color = "#457B9D",
+    color = "#213547",
     linewidth = 1.3
   ) +
   
   # Saturday
   geom_line(
     data = subset(plot_df, day_group == "Saturday"),
-    color = "#2A9D8F",
+    color = "#5B8E7D",
     linewidth = 1.6
   ) +
   
   # Sunday
   geom_line(
     data = subset(plot_df, day_group == "Sunday"),
-    color = "#E76F51",
+    color = "#D97B66",
     linewidth = 1.6
   ) +
   
@@ -889,9 +934,9 @@ geom_vline(
     title = paste0(
       "Average App Usage per Hour — ",
       "<span style='color:#A0A6AC;'>Mon–Thu</span>, ",
-      "<span style='color:#457B9D;'>Friday</span>, ",
-      "<span style='color:#2A9D8F;'>Saturday</span>, ",
-      "<span style='color:#E76F51;'>Sunday</span>"
+      "<span style='color:#213547;'>Friday</span>, ",
+      "<span style='color:#5B8E7D;'>Saturday</span>, ",
+      "<span style='color:#D97B66;'>Sunday</span>"
     ),
     x = "Hour of Day",
     y = "Average App Usage (min/hour)"
@@ -975,21 +1020,21 @@ pb = ggplot(plot_df,
   # friday
   geom_point(
     data = subset(plot_df, day_group == "Friday"),
-    color = "#457B9D",
+    color = "#213547",
     size = 3
   ) +
   
   # saturday
   geom_point(
     data = subset(plot_df, day_group == "Saturday"),
-    color = "#2A9D8F",
+    color = "#5B8E7D",
     size = 3
   ) +
   
   # sunday
   geom_point(
     data = subset(plot_df, day_group == "Sunday"),
-    color = "#E76F51",
+    color = "#D97B66",
     size = 3
   ) +
   
@@ -1007,8 +1052,8 @@ pb = ggplot(plot_df,
       "Average Daily App Usage — ",
       "<span style='color:#A0A6AC;'>Mon–Thu</span>, ",
       "<span style='color:#457B9D;'>Friday</span>, ",
-      "<span style='color:#2A9D8F;'>Saturday</span>, ",
-      "<span style='color:#E76F51;'>Sunday</span>"
+      "<span style='color:#5B8E7D;'>Saturday</span>, ",
+      "<span style='color:#D97B66;'>Sunday</span>"
     ),
     x = NULL,
     y = "Average Daily Usage (hours)"
@@ -1040,91 +1085,7 @@ library(dplyr)
 library(ggplot2)
 library(hrbrthemes)
 
-####################### Differences Vizualizations ##################
 
-
-
-
-
-##### STRESS
-rq3 <- manyapps_hourly_noapp %>%
-  distinct(
-    Dataset,
-    unique_participant_number,
-    study_average_daily_app_usage,
-    STRESS,
-  ) 
-
-ggplot(rq3 , aes(x = STRESS, y = study_average_daily_app_usage/60/60)) +
-  geom_point(alpha = 0.35) +
-  geom_smooth(method = "loess", se = TRUE) +
-  labs(
-    title = "Average Daily Smartphone Use",
-    y = "Average daily smartphone use (hours)"
-  ) +
-  theme_ipsum()
-
-######## SWLS
-rq3 <- manyapps_hourly_noapp %>%
-  distinct(
-    Dataset,
-    unique_participant_number,
-    study_average_daily_app_usage,
-    SWLS,
-  ) 
-
-ggplot(rq3 , aes(x = SWLS, y = study_average_daily_app_usage/60/60)) +
-  geom_point(alpha = 0.35) +
-  geom_smooth(method = "loess", se = TRUE) +
-  labs(
-    title = "Average Daily Smartphone Use",
-    y = "Average daily smartphone use (hours)"
-  ) +
-  theme_ipsum()
-
-#### Depression
-rq3 <- manyapps_hourly_noapp %>%
-  distinct(
-    Dataset,
-    unique_participant_number,
-    study_average_daily_app_usage,
-    PHQ,
-  ) 
-
-ggplot(rq3 , aes(x = PHQ, y = study_average_daily_app_usage/60/60)) +
-  geom_point(alpha = 0.35) +
-  geom_smooth(method = "loess", se = TRUE) +
-  labs(
-    title = "Average Daily Smartphone Use",
-    y = "Average daily smartphone use (hours)"
-  ) +
-  theme_ipsum()
-
-
-# Higher depressive symptoms -> more smartphone use
-
-
-ggplot(manyapps_daily, aes(x = Dataset, y = PHQ, fill = Dataset)) +
-  geom_violin(alpha = 0.5, trim = FALSE) +
-  geom_boxplot(width = 0.12, outlier.alpha = 0.2) +
-  labs(
-    title = "PHQ Scores by Dataset",
-    x = "Dataset",
-    y = "PHQ Score"
-  ) +
-  theme_ipsum() +
-  theme(legend.position = "none")
-
-ggplot(manyapps_daily, aes(x = Dataset, y = PHQ, color = Dataset)) +
-  geom_jitter(width = 0.15, alpha = 0.15) +
-  geom_boxplot(width = 0.2, alpha = 0.4, outlier.shape = NA) +
-  labs(
-    title = "PHQ Scores by Dataset",
-    x = "Dataset",
-    y = "PHQ Score"
-  ) +
-  theme_ipsum() +
-  theme(legend.position = "none")
 ##### Location Scale Model Try out
 library(brms)
 library(dplyr)
@@ -1183,66 +1144,6 @@ summary(m_daily_usage_locscale)
 #########
 
 
-# Participant-level averages for PHQ
-rq3 <- manyapps_hourly_noapp %>%
-  distinct(
-    Dataset,
-    unique_participant_number,
-    study_average_daily_app_usage,
-    age,
-  ) 
-
-ggplot(rq3 , aes(x = age, y = study_average_daily_app_usage/60/60)) +
-  geom_point(alpha = 0.35) +
-  geom_smooth(method = "loess", se = TRUE) +
-  labs(
-    title = "Average Daily Smartphone Use",
-    y = "Average daily smartphone use (hours)"
-  ) +
-  theme_ipsum()
-
-
-
-# Participant-level averages for PHQ
-rq3 <- manyapps_hourly_noapp %>%
-  distinct(
-    Dataset,
-    unique_participant_number,
-    study_average_daily_app_usage,
-    gender,
-  ) 
-
-ggplot(rq3 , aes(x = gender, y = study_average_daily_app_usage/60/60)) +
-  geom_boxplot(alpha = 0.35) +
-  #geom_smooth(method = "loess", se = TRUE) +
-  labs(
-    title = "Average Daily Smartphone Use",
-    y = "Average daily smartphone use (hours)"
-  ) +
-  theme_ipsum()
-
-
-# Participant-level averages for PHQ
-rq3 <- manyapps_hourly_noapp %>%
-  distinct(
-    Dataset,
-    unique_participant_number,
-    study_average_daily_app_usage,
-    age_group,
-  ) 
-
-ggplot(rq3 , aes(x = age_group, y = study_average_daily_app_usage/60/60)) +
-  geom_boxplot(alpha = 0.35) +
-  #geom_smooth(method = "loess", se = TRUE) +
-  labs(
-    title = "Average Daily Smartphone Use",
-    y = "Average daily smartphone use (hours)"
-  ) +
-  theme_ipsum()
-
-
-
-
 #  For categorical variables (b,e), including gender and weekday versus weekend,
 # violin plots were used to visualize the distribution of daily smartphone use, with means and 95% confidence intervals displayed. 
 
@@ -1252,35 +1153,6 @@ ggplot(rq3 , aes(x = age_group, y = study_average_daily_app_usage/60/60)) +
 library(dplyr)
 library(lubridate)
 library(ggplot2)
-
-daily <- manyapps_hourly_noapp %>%
-  mutate(day = as.Date(day)) %>%
-  group_by(Dataset, unique_participant_number, day) %>%
-  summarise(
-    total_daily_app_usage = first(total_daily_app_usage),
-    total_daily_app_usage_hr = first(total_daily_app_usage) / 60 / 60,
-    .groups = "drop"
-  )
-
-usage_by_year <- daily %>%
-  mutate(year = year(day)) %>%
-  group_by(year) %>%
-  summarise(
-    mean_daily_usage_hr = mean(total_daily_app_usage_hr, na.rm = TRUE),
-    median_daily_usage_hr = median(total_daily_app_usage_hr, na.rm = TRUE),
-    n_days = n(),
-    .groups = "drop"
-  )
-
-ggplot(usage_by_year, aes(x = year, y = mean_daily_usage_hr)) +
-  geom_line() +
-  geom_point() +
-  labs(
-    x = "Year",
-    y = "Mean daily app usage (hours)",
-    title = "Average daily app usage over years"
-  ) +
-  theme_minimal()
 
 
 
