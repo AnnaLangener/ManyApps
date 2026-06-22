@@ -12,6 +12,13 @@ library(lme4)
 library(lmerTest)
 library(glmmTMB)
 
+#TODO 
+# - center age!!
+# - life satisfaciton als outcome
+# - neuer datensatz laden mit korrigierter conut variable
+# - possion model?
+
+
 dat <- read_csv("../Data/processed_data/Final_noapp_overview.csv")
 dat$id <- dat$unique_participant_number
 dat$id_numeric <- as.numeric(factor(dat$id))
@@ -167,7 +174,7 @@ m_duration_base <- glmmTMB(
 )
 summary(m_duration_base)
 
-# center age!!
+
 
 # Model for Daily App Diversity
 
