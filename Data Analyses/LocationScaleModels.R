@@ -66,9 +66,9 @@ dat_daily <- bind_cols(dat_daily, as.data.frame(dummies))
 colnames(dummies)
 
 
-daily_numeric_withoutWB <- dat_daily[,c("id_numeric","age","gender_numeric","weekend","total_daily_usage_raw","total_daily_app_usage")]
-daily_numeric_withAffect <- dat_daily[,c("id_numeric","age","gender_numeric","weekend","PANAS_POS","PANAS_NEG","total_daily_usage_raw","total_daily_app_usage")]
-daily_numeric_withPHQ <- dat_daily[,c("id_numeric","age","gender_numeric","weekend","PHQ","total_daily_usage_raw","total_daily_app_usage")]
+# daily_numeric_withoutWB <- dat_daily[,c("id_numeric","age","gender_numeric","weekend","total_daily_usage_raw","total_daily_app_usage")]
+# daily_numeric_withAffect <- dat_daily[,c("id_numeric","age","gender_numeric","weekend","PANAS_POS","PANAS_NEG","total_daily_usage_raw","total_daily_app_usage")]
+# daily_numeric_withPHQ <- dat_daily[,c("id_numeric","age","gender_numeric","weekend","PHQ","total_daily_usage_raw","total_daily_app_usage")]
 
 #write.csv(daily_numeric_withoutWB[complete.cases(daily_numeric_withoutWB),],"../Data/processed_data/daily_numeric_completeCases_withoutWB.csv")
 #write.csv(daily_numeric_withAffect[complete.cases(daily_numeric_withAffect),],"../Data/processed_data/daily_numeric_completeCases_withAffect.csv")
@@ -166,6 +166,8 @@ m_duration_base <- glmmTMB(
   family = gaussian()
 )
 summary(m_duration_base)
+
+# center age!!
 
 # Model for Daily App Diversity
 
