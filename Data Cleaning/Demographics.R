@@ -548,7 +548,10 @@ colnames(kling_dem)
 emotion_dem_raw <- read.csv("/Users/f007qrc/projects/ManyApps_Data/eMotion/ManyApps_eMotion_Demographics.csv", stringsAsFactors = FALSE)
 length(unique(emotion_dem_raw$participant_number))
 
-emotion_dem_raw$SWLS
+
+swls_col <- c( "swls1", "swls2" , "swls3" , "swls4",  "swls5" )
+
+emotion_dem_raw$SWLS <- rowMeans(emotion_dem_raw[swls_col], na.rm = TRUE)
 
 emotion_dem <- emotion_dem_raw %>%
   transmute(
@@ -599,9 +602,6 @@ write.csv(
   emotion_dem,
   "/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/all/emotion_with_dem.csv"
 )
-
-colnames(emotion_dem)
-
 
 
 ############# Chow  #############

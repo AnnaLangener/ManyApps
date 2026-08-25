@@ -447,75 +447,74 @@ write.csv(manyapps_app_hourly_final,"/Users/f007qrc/projects/ManyApps_Data/compl
 unique(manyapps_app_hourly_final$Package_name)
 
 
-#################
-# Clean app names
-
-top_apps_by_sample_100 <- manyapps_app_hourly_final %>%
-  filter(Dataset != "WHALE") %>% 
-  mutate(app_minutes = total_daily_app_usage) %>% # daily because of corona studies
-  group_by(unique_participant_number, Package_name, Dataset, age_group, gender) %>%
-  summarise(app_minutes = sum(app_minutes, na.rm = TRUE), .groups = "drop") %>%
-  group_by(Dataset, unique_participant_number) %>%
-  mutate(total_minutes_all_apps = sum(app_minutes, na.rm = TRUE)) %>%
-  ungroup() %>%
-  mutate(app_share_person = ifelse(total_minutes_all_apps > 0, app_minutes / total_minutes_all_apps, NA_real_)) %>%
-  group_by(Dataset,Package_name) %>%
-  summarise(
-    share = sum(app_share_person, na.rm = TRUE),
-    n_people = n_distinct(unique_participant_number),
-    .groups = "drop"
-  ) %>%
-  group_by(Dataset) %>%
-  arrange(desc(share), .by_group = TRUE) %>%
-  mutate(rank = row_number()) %>%
-  slice_head(n = 100) %>%
-  ungroup()
-
-
-top_apps_by_agegroup_100 <- manyapps_app_hourly_final %>%
-  mutate(app_minutes = total_daily_app_usage) %>% # daily because of corona studies
-  group_by(unique_participant_number,Package_name, Dataset, age_group, gender) %>% 
-  summarise(app_minutes = sum(app_minutes, na.rm = TRUE), .groups = "drop") %>% # Calculate how much time a person spent on each app
-  group_by(unique_participant_number) %>%
-  mutate(total_minutes_all_apps = sum(app_minutes, na.rm = TRUE)) %>% # Calculate how much time a person spent on all apps
-  ungroup() %>%
-  mutate(app_share_person = ifelse(total_minutes_all_apps > 0, app_minutes / total_minutes_all_apps, NA_real_)) %>% # Calculate proportion of time spent on an app 
-  group_by(age_group, Package_name) %>%
-  summarise(
-    share = sum(app_share_person, na.rm = TRUE),# sum share across all participants
-    n_people = n_distinct(unique_participant_number),
-    .groups = "drop"
-  ) %>%
-  group_by(age_group) %>%
-  arrange(desc(share), .by_group = TRUE) %>%
-  mutate(rank = row_number()) %>%
-  slice_head(n = 100) %>%
-  ungroup()
-
-
-top_apps_by_gender_100 <- manyapps_app_hourly_final %>%
-  filter(Dataset != "WHALE") %>% 
-  mutate(app_minutes = total_daily_app_usage) %>% # daily because of corona studies
-  group_by(unique_participant_number, Package_name, Dataset, age_group, gender) %>%
-  summarise(app_minutes = sum(app_minutes, na.rm = TRUE), .groups = "drop") %>%
-  group_by(Dataset, unique_participant_number) %>%
-  mutate(total_minutes_all_apps = sum(app_minutes, na.rm = TRUE)) %>%
-  ungroup() %>%
-  mutate(app_share_person = ifelse(total_minutes_all_apps > 0, app_minutes / total_minutes_all_apps, NA_real_)) %>%
-  group_by(gender,Package_name) %>%
-  summarise(
-    share = sum(app_share_person, na.rm = TRUE),
-    n_people = n_distinct(unique_participant_number),
-    .groups = "drop"
-  ) %>%
-  group_by(gender) %>%
-  arrange(desc(share), .by_group = TRUE) %>%
-  mutate(rank = row_number()) %>%
-  slice_head(n = 100) %>%
-  ungroup()
-
-apps = unique(c(top_apps_by_gender_100$Package_name,top_apps_by_agegroup_100$Package_name,top_apps_by_sample_100$Package_name))
-
+# #################
+# # Clean app names
+# 
+# top_apps_by_sample_100 <- manyapps_app_hourly_final %>%
+#   filter(Dataset != "WHALE") %>% 
+#   mutate(app_minutes = total_daily_app_usage) %>% # daily because of corona studies
+#   group_by(unique_participant_number, Package_name, Dataset, age_group, gender) %>%
+#   summarise(app_minutes = sum(app_minutes, na.rm = TRUE), .groups = "drop") %>%
+#   group_by(Dataset, unique_participant_number) %>%
+#   mutate(total_minutes_all_apps = sum(app_minutes, na.rm = TRUE)) %>%
+#   ungroup() %>%
+#   mutate(app_share_person = ifelse(total_minutes_all_apps > 0, app_minutes / total_minutes_all_apps, NA_real_)) %>%
+#   group_by(Dataset,Package_name) %>%
+#   summarise(
+#     share = sum(app_share_person, na.rm = TRUE),
+#     n_people = n_distinct(unique_participant_number),
+#     .groups = "drop"
+#   ) %>%
+#   group_by(Dataset) %>%
+#   arrange(desc(share), .by_group = TRUE) %>%
+#   mutate(rank = row_number()) %>%
+#   slice_head(n = 100) %>%
+#   ungroup()
+# 
+# 
+# top_apps_by_agegroup_100 <- manyapps_app_hourly_final %>%
+#   mutate(app_minutes = total_daily_app_usage) %>% # daily because of corona studies
+#   group_by(unique_participant_number,Package_name, Dataset, age_group, gender) %>% 
+#   summarise(app_minutes = sum(app_minutes, na.rm = TRUE), .groups = "drop") %>% # Calculate how much time a person spent on each app
+#   group_by(unique_participant_number) %>%
+#   mutate(total_minutes_all_apps = sum(app_minutes, na.rm = TRUE)) %>% # Calculate how much time a person spent on all apps
+#   ungroup() %>%
+#   mutate(app_share_person = ifelse(total_minutes_all_apps > 0, app_minutes / total_minutes_all_apps, NA_real_)) %>% # Calculate proportion of time spent on an app 
+#   group_by(age_group, Package_name) %>%
+#   summarise(
+#     share = sum(app_share_person, na.rm = TRUE),# sum share across all participants
+#     n_people = n_distinct(unique_participant_number),
+#     .groups = "drop"
+#   ) %>%
+#   group_by(age_group) %>%
+#   arrange(desc(share), .by_group = TRUE) %>%
+#   mutate(rank = row_number()) %>%
+#   slice_head(n = 100) %>%
+#   ungroup()
+# 
+# 
+# top_apps_by_gender_100 <- manyapps_app_hourly_final %>%
+#   filter(Dataset != "WHALE") %>% 
+#   mutate(app_minutes = total_daily_app_usage) %>% # daily because of corona studies
+#   group_by(unique_participant_number, Package_name, Dataset, age_group, gender) %>%
+#   summarise(app_minutes = sum(app_minutes, na.rm = TRUE), .groups = "drop") %>%
+#   group_by(Dataset, unique_participant_number) %>%
+#   mutate(total_minutes_all_apps = sum(app_minutes, na.rm = TRUE)) %>%
+#   ungroup() %>%
+#   mutate(app_share_person = ifelse(total_minutes_all_apps > 0, app_minutes / total_minutes_all_apps, NA_real_)) %>%
+#   group_by(gender,Package_name) %>%
+#   summarise(
+#     share = sum(app_share_person, na.rm = TRUE),
+#     n_people = n_distinct(unique_participant_number),
+#     .groups = "drop"
+#   ) %>%
+#   group_by(gender) %>%
+#   arrange(desc(share), .by_group = TRUE) %>%
+#   mutate(rank = row_number()) %>%
+#   slice_head(n = 100) %>%
+#   ungroup()
+# 
+# apps = unique(c(top_apps_by_gender_100$Package_name,top_apps_by_agegroup_100$Package_name,top_apps_by_sample_100$Package_name))
 
 manyapps_app_hourly_final$Package_name[manyapps_app_hourly_final$Package_name == "whatsapp"] <- "com.whatsapp"
 manyapps_app_hourly_final$Package_name[manyapps_app_hourly_final$Package_name == "instagram"]<- "com.instagram.android"
@@ -530,13 +529,11 @@ manyapps_app_hourly_final$Package_name[manyapps_app_hourly_final$Package_name ==
 top_apps_by_agegroup <- manyapps_app_hourly_final %>%
   filter(Dataset != "WHALE") %>%
   mutate(app_minutes = total_daily_app_usage) %>%
-  
   group_by(unique_participant_number, Package_name, age_group) %>%
   summarise(
     app_minutes = sum(app_minutes, na.rm = TRUE),
     .groups = "drop"
   ) %>%
-  
   group_by(unique_participant_number) %>%
   mutate(
     total_minutes_all_apps = sum(app_minutes, na.rm = TRUE),
@@ -833,7 +830,7 @@ manyapps_hourly_noapp <- manyapps_hourly_noapp %>%
       )
   }) %>%
   ungroup() %>%
-  group_by(unique_participant_number) %>%   # <- fill only within participant
+  group_by(unique_participant_number, day) %>%   # <- fill only within participant
   fill(
     Dataset,
     age,
