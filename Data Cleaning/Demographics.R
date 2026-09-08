@@ -610,22 +610,24 @@ write.csv(
 chow_dem <- read.csv("/Users/f007qrc/projects/ManyApps_Data/Chow/BUCS_traitdata_cleaned_11-21-2024.csv")
 
 remove_ids <- c(4, 20, 70, 94, 214, 253, 283, 494, 153)
-chow_dem <- chow_dem[!chow_dem$Record_ID %in% remove_ids, ]
+chow_dem <- chow_dem[!chow_dem$Study_ID %in% remove_ids, ]
 
 # Check how many unique participants remain
-length(unique(chow_dem$Record_ID))
+length(unique(chow_dem$Study_ID))
 
 chow_apps <- read.csv("/Users/f007qrc/projects/ManyApps_Data/Cleaned_Apps/chow_apps.csv")
 
 length(unique(chow_apps$participant_number))
 
+sum(unique(chow_apps$participant_number) %in% unique(chow_dem$Study_ID))
+
 chow_dem$PHQ <- chow_dem$PHQ8_TOTAL/8
 
 
 chow_dem <- chow_dem %>%
-  select(Record_ID, age_demo, gender, PANAS_POS, PANAS_NEG,PHQ8_TOTAL, PHQ) %>%
+  select(Study_ID, age_demo, gender, PANAS_POS, PANAS_NEG,PHQ8_TOTAL, PHQ) %>%
   rename(
-    participant_number = Record_ID,
+    participant_number = Study_ID,
     age = age_demo,
     PANAS_POS_5 = PANAS_POS,
     PANAS_NEG_5 = PANAS_NEG
@@ -660,7 +662,7 @@ chow_dem$PANAS_NEG <- (as.numeric(chow_dem$PANAS_NEG_5) - 1) / (5 - 1)
 chow_dem$PANAS_POS <- (as.numeric(chow_dem$PANAS_POS_5) - 1) / (5 - 1)
 
 
-length(unique(chow_dem$participant_number[!is.na(chow_dem$PANAS_NEG_5)]))
+length(unique(chow_dem$participant_number[!is.na(chow_dem$PHQ)]))
 
 
 write.csv(

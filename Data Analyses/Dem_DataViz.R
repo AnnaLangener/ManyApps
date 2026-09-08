@@ -16,7 +16,91 @@ manyapps_hourly_noapp <- read_csv(
   "/Users/f007qrc/projects/ManyApps_Data/Final_noapp_overview.csv",
 )[-1]
 
+###### Rename Datasets #####
+
+manyapps_hourly_noapp$Dataset[manyapps_hourly_noapp$Dataset == "WHALE"] <- "WHALE (Germany)"
+manyapps_hourly_noapp$Dataset[manyapps_hourly_noapp$Dataset == "MoodyLife"] <- "Moody Life Study (Germany)"
+manyapps_hourly_noapp$Dataset[manyapps_hourly_noapp$Dataset == "disconnect"] <- "DISCONNECT (Belgium)"
+manyapps_hourly_noapp$Dataset[manyapps_hourly_noapp$Dataset == "Study_Smart_W1"] <- "Study Smart W1 (Control, Belgium)"
+manyapps_hourly_noapp$Dataset[manyapps_hourly_noapp$Dataset == "Study_Smart_W2"] <- "Study Smart W2 (Control, Belgium)"
+manyapps_hourly_noapp$Dataset[manyapps_hourly_noapp$Dataset == "Study_Smart_W3"] <- "Study Smart W3 (Control, Belgium)"
+manyapps_hourly_noapp$Dataset[manyapps_hourly_noapp$Dataset == "Spain 1"] <- "ASSOCIATE (Spain)"
+manyapps_hourly_noapp$Dataset[manyapps_hourly_noapp$Dataset == "Spain 2"] <- "ASSOCIATE intervention (Spain)"
+manyapps_hourly_noapp$Dataset[manyapps_hourly_noapp$Dataset == "Yannik"] <- "Phone Study (Germany)"
+manyapps_hourly_noapp$Dataset[manyapps_hourly_noapp$Dataset == "klingelhoefer_disconnection"] <- "Momentary Disconnection (Germany)"
+manyapps_hourly_noapp$Dataset[manyapps_hourly_noapp$Dataset == "eMotion"] <- "eMotion Study (Germany)"
+manyapps_hourly_noapp$Dataset[manyapps_hourly_noapp$Dataset == "Chow_APPUSAGE"] <- "BUCS Study (USA)"
+manyapps_hourly_noapp$Dataset[manyapps_hourly_noapp$Dataset == "Behapp_PRISM"] <- "Behapp - PRISM study (Netherlands)"
+manyapps_hourly_noapp$Dataset[manyapps_hourly_noapp$Dataset == "Aidan_APPUSAGE"] <- "ILIADD (USA)"
+unique(manyapps_hourly_noapp$Dataset)
+
+n_per_dataset <- manyapps_hourly_noapp %>%
+  group_by(Dataset) %>%
+  summarise(
+    N = n_distinct(unique_participant_number),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(N))
+
+
+length(unique(manyapps_hourly_noapp$unique_participant_number[!is.na(manyapps_hourly_noapp$SWLS)]))
+length(unique(manyapps_hourly_noapp$unique_participant_number[!is.na(manyapps_hourly_noapp$PANAS_NEG)]))
+length(unique(manyapps_hourly_noapp$unique_participant_number[!is.na(manyapps_hourly_noapp$PHQ)]))
+
+n_per_dataset
+
+
+n_per_dataset <- manyapps_hourly_noapp %>%
+  group_by(Dataset) %>%
+  summarise(
+    N_SWLS = n_distinct(
+      unique_participant_number[!is.na(PANAS_NEG)],
+      na.rm = TRUE
+    ),
+    N_PANAS_NEG = n_distinct(
+      unique_participant_number[!is.na(SWLS)],
+      na.rm = TRUE
+    ),
+    N_PHQ = n_distinct(
+      unique_participant_number[!is.na(PHQ)],
+      na.rm = TRUE
+    ),
+    .groups = "drop"
+  ) %>%
+  arrange(Dataset)
+
+n_per_dataset
+
+
+top_apps_by_sample$Dataset[top_apps_by_sample$Dataset == "WHALE"] <- "WHALE (Germany)"
+top_apps_by_sample$Dataset[top_apps_by_sample$Dataset == "MoodyLife"] <- "Moody Life Study (Germany)"
+top_apps_by_sample$Dataset[top_apps_by_sample$Dataset == "disconnect"] <- "DISCONNECT (Belgium)"
+top_apps_by_sample$Dataset[top_apps_by_sample$Dataset == "Study_Smart_W1"] <- "Study Smart W1 (Control, Belgium)"
+top_apps_by_sample$Dataset[top_apps_by_sample$Dataset == "Study_Smart_W2"] <- "Study Smart W2 (Control, Belgium)"
+top_apps_by_sample$Dataset[top_apps_by_sample$Dataset == "Study_Smart_W3"] <- "Study Smart W3 (Control, Belgium)"
+top_apps_by_sample$Dataset[top_apps_by_sample$Dataset == "Spain 1"] <- "ASSOCIATE (Spain)"
+top_apps_by_sample$Dataset[top_apps_by_sample$Dataset == "Spain 2"] <- "ASSOCIATE intervention (Spain)"
+top_apps_by_sample$Dataset[top_apps_by_sample$Dataset == "Yannik"] <- "Phone Study (Germany)"
+top_apps_by_sample$Dataset[top_apps_by_sample$Dataset == "klingelhoefer_disconnection"] <- "Momentary Disconnection (Germany)"
+top_apps_by_sample$Dataset[top_apps_by_sample$Dataset == "Aidan_APPUSAGE"] <- "ILIADD (USA)"
+top_apps_by_sample$Dataset[top_apps_by_sample$Dataset == "Behapp_PRISM"] <- "Behapp - PRISM study (Netherlands)"
+top_apps_by_sample$Dataset[top_apps_by_sample$Dataset == "eMotion"] <- "eMotion Study (Germany)"
+top_apps_by_sample$Dataset[top_apps_by_sample$Dataset == "Chow_APPUSAGE"] <- "BUCS Study (USA)"
+unique(top_apps_by_sample$Dataset)
+
+
 length(unique(manyapps_hourly_noapp$unique_participant_number))
+
+
+# Unique person-days
+manyapps_hourly_noapp %>%
+  distinct(unique_participant_number, day) %>%
+  nrow()
+
+# Unique person-hours
+manyapps_hourly_noapp %>%
+  distinct(unique_participant_number, day, hour_start) %>%
+  nrow()
 
 ###############################
 
@@ -1491,6 +1575,15 @@ demo_term_cols <- c(
      Gender = factor(Gender, levels = c("Female", "Male", "Other"))
    )
  
+ mean(dem_participant$smartphone_hours[dem_participant$Gender == "Female"], na.rm = T)
+ sd(dem_participant$smartphone_hours[dem_participant$Gender == "Female"], na.rm = T)
+ 
+ mean(dem_participant$smartphone_hours[dem_participant$Gender == "Male"], na.rm = T)
+ sd(dem_participant$smartphone_hours[dem_participant$Gender == "Male"], na.rm = T)
+ 
+ mean(dem_participant$smartphone_hours[dem_participant$Gender == "Other"], na.rm = T)
+ sd(dem_participant$smartphone_hours[dem_participant$Gender == "Other"], na.rm = T)
+ 
  dem_day <- manyapps_hourly_noapp %>%
    distinct(
      unique_participant_number,
@@ -1517,6 +1610,11 @@ demo_term_cols <- c(
    mutate(
      Day = factor(Day, levels = c("Weekday", "Weekend"))
    )
+ 
+ mean(dem_day$smartphone_hours[dem_day$Day == "Weekday"], na.rm = T)
+ sd(dem_day$smartphone_hours[dem_day$Day == "Weekday"], na.rm = T)
+ mean(dem_day$smartphone_hours[dem_day$Day == "Weekend"], na.rm = T)
+ sd(dem_day$smartphone_hours[dem_day$Day == "Weekend"], na.rm = T)
  
  baseline_demo_models <- read_csv(
    "baseline_plot_data.csv",

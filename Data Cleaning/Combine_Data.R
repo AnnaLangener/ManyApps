@@ -70,31 +70,6 @@ length(unique(manyapps_all_apps_raw$unique_participant_number))
 unique_participants_dataset <- unique(manyapps_all_apps_raw[, c("participant_number", "Dataset")])
 table(unique_participants_dataset$Dataset)
 
-# # Unique participants by country
-# unique_participants_country <- unique(manyapps_all_apps_raw[, c("unique_participant_number", "country")])
-# table(unique_participants_country$country)
-# 
-# library(treemapify)
-# # -------------------------------
-# # 1. Summarize participant counts by country
-# # -------------------------------
-# plot_data <- unique_participants_country %>%
-#   group_by(country) %>%
-#   summarise(n_participants = n()) %>%
-#   ungroup() %>%
-#   # Optional: treat numeric codes/NA as "Other"
-#   mutate(country = ifelse(is.na(country) | grepl("^[0-9]+$", country), "Other", country))
-# 
-# # -------------------------------
-# # 2. Treemap plot
-# # -------------------------------
-# ggplot(plot_data, aes(area = n_participants, fill = country, label = country)) +
-#   geom_treemap() +
-#   geom_treemap_text(color = "white", place = "center", size = 12) +
-#   labs(title = "Participants by Country") +
-#   theme(legend.position = "none")
-
-
 manyapps_all_apps_raw <- manyapps_all_apps_raw[, !colnames(manyapps_all_apps_raw) %in% "V1"]
 #write.csv(manyapps_all_apps_raw,"/Users/f007qrc/projects/ManyApps_Data/complete_data_beforecleaning.csv")
 #manyapps_all_apps_raw = read.csv("/Users/f007qrc/projects/ManyApps_Data/complete_data_beforecleaning.csv")
@@ -209,7 +184,7 @@ participant_quality <- manyapps_day_coverage %>%
 
 sum(participant_quality$prop_days_with_data < 0.5) 
 
-
+# 
 # # Count participants with prop_days_with_data < 0.5 by dataset
 # participant_low_data <- participant_quality %>%
 #   group_by(Dataset) %>%
@@ -230,6 +205,8 @@ manyapps_all_apps <- manyapps_14d %>%
 
 
 length(unique(manyapps_all_apps$unique_participant_number))
+length(unique(manyapps_all_apps$Dataset))
+
 length(unique(manyapps_all_apps$Dataset))
 
 
@@ -866,7 +843,7 @@ manyapps_hourly_noapp <- manyapps_hourly_noapp %>%
 
 colnames(manyapps_hourly_noapp)
 
-
+manyapps_hourly_noapp$country[manyapps_hourly_noapp$Dataset == "klingelhoefer_disconnection"] <- "Germany"
 
 write.csv(manyapps_hourly_noapp,"/Users/f007qrc/projects/ManyApps_Data/Final_noapp_overview.csv")
 
