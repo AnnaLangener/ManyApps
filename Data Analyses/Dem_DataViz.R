@@ -53,11 +53,11 @@ n_per_dataset
 n_per_dataset <- manyapps_hourly_noapp %>%
   group_by(Dataset) %>%
   summarise(
-    N_SWLS = n_distinct(
+    N_Affect = n_distinct(
       unique_participant_number[!is.na(PANAS_NEG)],
       na.rm = TRUE
     ),
-    N_PANAS_NEG = n_distinct(
+    N_SWLS = n_distinct(
       unique_participant_number[!is.na(SWLS)],
       na.rm = TRUE
     ),
