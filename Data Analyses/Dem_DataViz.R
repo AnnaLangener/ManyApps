@@ -21,9 +21,9 @@ manyapps_hourly_noapp <- read_csv(
 manyapps_hourly_noapp$Dataset[manyapps_hourly_noapp$Dataset == "WHALE"] <- "WHALE (Germany)"
 manyapps_hourly_noapp$Dataset[manyapps_hourly_noapp$Dataset == "MoodyLife"] <- "Moody Life Study (Germany)"
 manyapps_hourly_noapp$Dataset[manyapps_hourly_noapp$Dataset == "disconnect"] <- "DISCONNECT (Belgium)"
-manyapps_hourly_noapp$Dataset[manyapps_hourly_noapp$Dataset == "Study_Smart_W1"] <- "Study Smart W1 (Control, Belgium)"
-manyapps_hourly_noapp$Dataset[manyapps_hourly_noapp$Dataset == "Study_Smart_W2"] <- "Study Smart W2 (Control, Belgium)"
-manyapps_hourly_noapp$Dataset[manyapps_hourly_noapp$Dataset == "Study_Smart_W3"] <- "Study Smart W3 (Control, Belgium)"
+manyapps_hourly_noapp$Dataset[manyapps_hourly_noapp$Dataset == "Study_Smart_W1"] <- "Study Smart W1 (Control, Germany)"
+manyapps_hourly_noapp$Dataset[manyapps_hourly_noapp$Dataset == "Study_Smart_W2"] <- "Study Smart W2 (Control, Germany)"
+manyapps_hourly_noapp$Dataset[manyapps_hourly_noapp$Dataset == "Study_Smart_W3"] <- "Study Smart W3 (Control, Germany)"
 manyapps_hourly_noapp$Dataset[manyapps_hourly_noapp$Dataset == "Spain 1"] <- "ASSOCIATE (Spain)"
 manyapps_hourly_noapp$Dataset[manyapps_hourly_noapp$Dataset == "Spain 2"] <- "ASSOCIATE intervention (Spain)"
 manyapps_hourly_noapp$Dataset[manyapps_hourly_noapp$Dataset == "Yannik"] <- "Phone Study (Germany)"
@@ -38,6 +38,8 @@ n_per_dataset <- manyapps_hourly_noapp %>%
   group_by(Dataset) %>%
   summarise(
     N = n_distinct(unique_participant_number),
+    year_min = lubridate::year(min(day, na.rm = TRUE)),
+    year_max = lubridate::year(max(day, na.rm = TRUE)),
     .groups = "drop"
   ) %>%
   arrange(desc(N))
@@ -1005,7 +1007,7 @@ p_apps <- ggplot(
 # ============================================================
 
 model_results <- read_csv(
-  "wellbeing_plot_data.csv",
+  "wellbeing_plot_data_2026-09-09.csv",
   show_col_types = FALSE
 ) %>%
   
@@ -1617,12 +1619,12 @@ demo_term_cols <- c(
  sd(dem_day$smartphone_hours[dem_day$Day == "Weekend"], na.rm = T)
  
  baseline_demo_models <- read_csv(
-   "baseline_plot_data.csv",
+   "baseline_plot_data_2026-09-09.csv",
    show_col_types = FALSE
  ) %>%
    filter(
      Variable %in% c(
-       "age_grandCentere",
+       "age_grandC",
        "genderfemale",
        "genderother",
        "weekend"
@@ -1630,7 +1632,7 @@ demo_term_cols <- c(
    ) %>%
    transmute(
      Term = case_when(
-       Variable == "age_grandCentere" ~ "Age (Centered)",
+       Variable == "age_grandC" ~ "Age (Centered)",
        Variable == "genderfemale" ~ "Female vs. male",
        Variable == "genderother" ~ "Other vs. male",
        Variable == "weekend" ~ "Weekend vs. weekday",
