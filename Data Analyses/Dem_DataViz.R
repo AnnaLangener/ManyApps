@@ -40,9 +40,24 @@ n_per_dataset <- manyapps_hourly_noapp %>%
     N = n_distinct(unique_participant_number),
     year_min = lubridate::year(min(day, na.rm = TRUE)),
     year_max = lubridate::year(max(day, na.rm = TRUE)),
+    age_min = min(age, na.rm = TRUE),
+    age_max = max(age, na.rm = TRUE),
     .groups = "drop"
   ) %>%
   arrange(desc(N))
+
+n_per_dataset <- manyapps_hourly_noapp %>%
+  group_by(lubridate::year(day)) %>%
+  summarise(
+    N = n_distinct(unique_participant_number),
+    year_min = lubridate::year(min(day, na.rm = TRUE)),
+    year_max = lubridate::year(max(day, na.rm = TRUE)),
+    age_min = min(age, na.rm = TRUE),
+    age_max = max(age, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(N))
+
 
 
 length(unique(manyapps_hourly_noapp$unique_participant_number[!is.na(manyapps_hourly_noapp$SWLS)]))
@@ -77,9 +92,9 @@ n_per_dataset
 top_apps_by_sample$Dataset[top_apps_by_sample$Dataset == "WHALE"] <- "WHALE (Germany)"
 top_apps_by_sample$Dataset[top_apps_by_sample$Dataset == "MoodyLife"] <- "Moody Life Study (Germany)"
 top_apps_by_sample$Dataset[top_apps_by_sample$Dataset == "disconnect"] <- "DISCONNECT (Belgium)"
-top_apps_by_sample$Dataset[top_apps_by_sample$Dataset == "Study_Smart_W1"] <- "Study Smart W1 (Control, Belgium)"
-top_apps_by_sample$Dataset[top_apps_by_sample$Dataset == "Study_Smart_W2"] <- "Study Smart W2 (Control, Belgium)"
-top_apps_by_sample$Dataset[top_apps_by_sample$Dataset == "Study_Smart_W3"] <- "Study Smart W3 (Control, Belgium)"
+top_apps_by_sample$Dataset[top_apps_by_sample$Dataset == "Study_Smart_W1"] <- "Study Smart W1 (Control, Germany)"
+top_apps_by_sample$Dataset[top_apps_by_sample$Dataset == "Study_Smart_W2"] <- "Study Smart W2 (Control, Germany)"
+top_apps_by_sample$Dataset[top_apps_by_sample$Dataset == "Study_Smart_W3"] <- "Study Smart W3 (Control, Germany)"
 top_apps_by_sample$Dataset[top_apps_by_sample$Dataset == "Spain 1"] <- "ASSOCIATE (Spain)"
 top_apps_by_sample$Dataset[top_apps_by_sample$Dataset == "Spain 2"] <- "ASSOCIATE intervention (Spain)"
 top_apps_by_sample$Dataset[top_apps_by_sample$Dataset == "Yannik"] <- "Phone Study (Germany)"
@@ -262,6 +277,7 @@ rq1b_within_person_summary <- participant_daily_stats %>%
   summarise(
     n_participants_with_sd = sum(!is.na(person_sd_daily_use)),
     mean_within_person_sd = mean(person_sd_daily_use, na.rm = TRUE),
+    median_within_person_sd = median(person_sd_daily_use, na.rm = TRUE),
     sd_within_person_sd = sd(person_sd_daily_use, na.rm = TRUE)
   )
 
@@ -429,6 +445,7 @@ rq1a_summary <- participant_daily_stats %>%
   summarise(
     n_participants = n(),
     mean_person_mean_daily_use = mean(person_mean_daily_use, na.rm = TRUE),
+    median_person_mean_daily_use =  median(person_mean_daily_use, na.rm = TRUE),
     sd_person_mean_daily_use = sd(person_mean_daily_use, na.rm = TRUE)
   )
 
@@ -440,6 +457,7 @@ rq1b_within_person_summary <- participant_daily_stats %>%
   summarise(
     n_participants_with_sd = sum(!is.na(person_sd_daily_use)),
     mean_within_person_sd = mean(person_sd_daily_use, na.rm = TRUE),
+    median_within_person_sd = median(person_sd_daily_use, na.rm = TRUE),
     sd_within_person_sd = sd(person_sd_daily_use, na.rm = TRUE)
   )
 
@@ -2431,7 +2449,8 @@ year_plot <- ggplot(
   labs(
     x = "Year",
     y = "Daily app usage (hours)") +
-  theme_ipsum() +
+  theme_ipsum(axis_title_size = 16,
+              axis_text_size = 14) +
   theme(
     legend.position = "right",
     plot.title = element_text(
@@ -2443,7 +2462,7 @@ year_plot <- ggplot(
     ),
     axis.title = element_text(
       color = base_col,
-      size = 60
+      size = 100
     ),
     axis.text = element_text(
       color = base_col,
@@ -3049,6 +3068,46 @@ rq3_correlations <- rq3_cont %>%
       n
     )
   )
+
+
+rq3_correlations_fll <- rq3_cont %>%
+  filter(
+    !is.na(Score),
+    !is.na(smartphone_hours),
+    is.finite(Score),
+    is.finite(smartphone_hours)
+  ) %>%
+  group_by(Construct) %>%
+  summarise(
+    n = n(),
+    test = list(
+      cor.test(
+        Score,
+        smartphone_hours,
+        method = "pearson",
+        conf.level = 0.95
+      )
+    ),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    r = purrr::map_dbl(test, ~ unname(.x$estimate)),
+    df = purrr::map_dbl(test, ~ unname(.x$parameter)),
+    p = purrr::map_dbl(test, ~ .x$p.value),
+    ci_lower = purrr::map_dbl(test, ~ .x$conf.int[1]),
+    ci_upper = purrr::map_dbl(test, ~ .x$conf.int[2]),
+    label = paste0(
+      "r(", df, ") = ", sprintf("%.2f", r),
+      ", 95% CI [", sprintf("%.2f", ci_lower),
+      ", ", sprintf("%.2f", ci_upper), "], ",
+      case_when(
+        p < .001 ~ "p < .001",
+        TRUE ~ paste0("p = ", sprintf("%.3f", p))
+      ),
+      "\nn = ", n
+    )
+  ) %>%
+  select(-test)
 
 
 # -------------------------------------------------------------------------
